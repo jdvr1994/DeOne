@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <group android:checkableBehavior="single">
+
+        <item
+            android:id="@+id/menu_home"
+            android:icon="@drawable/ic_test"
+            android:title="Inicio" />
+
+        <item
+            android:id="@+id/menu_cambiar_pass"
+            android:icon="@drawable/ic_change_pass"
+            android:title="Editar Perfil"/>
+
+    </group>
+
+    <item android:id="@+id/otras_opciones"
+        android:title="Otras opciones">
+        <menu>
+            <item
+                android:id="@+id/menu_cerrar_sesion"
+                android:icon="@drawable/ic_logout"
+                android:title="Cerrar Sesión"/>
+        </menu>
+    </item>
+
+</menu>

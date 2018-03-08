@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "385793573397",
+    "firebase_url": "https://deone-1519430782017.firebaseio.com",
+    "project_id": "deone-1519430782017",
+    "storage_bucket": "deone-1519430782017.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:385793573397:android:948c6114cd8143a5",
+        "android_client_info": {
+          "package_name": "com.apps.ing3ns.entregas"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "385793573397-14ee50monaou6ofj4vejjndesogep5h9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.apps.ing3ns.entregas",
+            "certificate_hash": "2e5a86ab9bc1300f3ef43ad7eefed86568028611"
+          }
+        },
+        {
+          "client_id": "385793573397-om3i4umstap1k6nkepl2giqpnrgjqlog.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyATPWlQtOpCVIhpB9us_dXbXahVMYa-Pk4"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "385793573397-om3i4umstap1k6nkepl2giqpnrgjqlog.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

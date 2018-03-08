@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#CDDC39</color>
+    <color name="primary_dark">#AFB42B</color>
+    <color name="primary_light">#F0F4C3</color>
+    <color name="accent">#FF9800</color>
+    <color name="primary_text">#212121</color>
+    <color name="secondary_text">#757575</color>
+    <color name="icons">#212121</color>
+    <color name="divider">#BDBDBD</color>
+
+
+    <color name="colorSecondary_text">#757575</color>
+
+    <color name="background_alpha">#a0000000</color>
+    <color name="background_alpha_menu_lateral">#80000000</color>
+    <color name="background_w2">#010102F9</color>
+    <color name="background_alpha_light">#83000000</color>
+    <color name="background_alpha_ultra_light">#22000000</color>
+    <color name="background_alpha_dark">#c8000000</color>
+    <color name="background_ligth_color">#f2f2f2</color>
+    <color name="bg_header_color">#1e1e1e</color>
+
+
+    //Colores sliders INTRO
+    <color name="first_slide_background">#CDDC39</color>
+    <color name="first_slide_buttons">#AFB42B</color>
+
+    <color name="second_slide_background">#FF9800</color>
+    <color name="second_slide_buttons">#d27d00</color>
+
+    <color name="third_slide_background">#009688</color>
+    <color name="third_slide_buttons">#004D40</color>
+
+    <color name="fourth_slide_background">#795548</color>
+    <color name="fourth_slide_buttons">#3E2723</color>
+
+    <color name="custom_slide_background">#3F51B5</color>
+    <color name="custom_slide_buttons">#1A237E</color>
+</resources>

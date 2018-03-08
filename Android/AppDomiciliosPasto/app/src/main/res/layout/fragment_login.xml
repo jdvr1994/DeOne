@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.apps.ing3ns.entregas.Fragmentos.LoginFragment">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <ImageView
+            android:id="@+id/imagenfondo"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:contentDescription="background"
+            android:src="@drawable/bg_city" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/background_alpha"/>
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/texto_pidelo_ya"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_centerHorizontal="true"
+        android:textSize="20sp"
+        android:textColor="@android:color/white"
+        android:text="Accede a tu cuenta"/>
+
+    <EditText
+        android:id="@+id/editTextUser"
+        android:layout_width="250dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/texto_pidelo_ya"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/bg_edit_text"
+        android:textSize="16dp"
+        android:hint="@string/ingresa_tu_usuario"
+        android:inputType="textPersonName"
+        android:padding="5dp"
+        android:text=""
+        android:textAlignment="center"
+        android:gravity="center"
+        android:textColor="@android:color/white"
+        android:textColorHint="#88ffffff" />
+
+    <EditText
+        android:id="@+id/editTextPass"
+        android:layout_width="250dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/editTextUser"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="5dp"
+        android:background="@drawable/bg_edit_text"
+        android:hint="@string/ingresa_tu_pass"
+        android:inputType="textPassword"
+        android:padding="5dp"
+        android:text=""
+        android:textAlignment="center"
+        android:textColor="@android:color/white"
+        android:textColorHint="#88ffffff"
+        android:gravity="center"
+        android:textSize="16dp" />
+
+
+    <Button
+        android:id="@+id/boton_entrar"
+        style="@style/Widget.AppCompat.Button.Colored"
+        android:layout_width="100dp"
+        android:layout_height="40dp"
+        android:layout_below="@+id/editTextPass"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/btn_rounded"
+        android:text="DE ONE"
+        android:transitionName="@string/fab_transition_name"/>
+
+    <RelativeLayout
+        android:id="@+id/layout_progress_bar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:background="@drawable/bg_dialog_dark"
+        android:gravity="center"
+        android:padding="30dp"
+        android:visibility="invisible">
+
+        <TextView
+            android:id="@+id/textView2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerHorizontal="true"
+            android:layout_marginBottom="10dp"
+            android:layout_weight="1"
+            android:text="Combrobando credenciales..."
+            android:textColor="@android:color/white"
+            android:textStyle="bold" />
+
+        <ProgressBar
+            android:id="@+id/progressBar2"
+            style="?android:attr/progressBarStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/textView2"
+            android:layout_centerHorizontal="true"
+            android:layout_centerInParent="false"
+            android:layout_weight="1"
+            android:progress="50" />
+    </RelativeLayout>
+
+</RelativeLayout>

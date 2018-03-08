@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.apps.ing3ns.entregas.Fragmentos.DomiciliarioFragment">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/background_ligth_color">
+
+        <RelativeLayout
+            android:id="@+id/cardview_dom"
+            android:layout_width="match_parent"
+            android:layout_height="160dp"
+            android:layout_alignParentTop="true"
+            android:gravity="center_vertical"
+            android:background="@color/bg_header_color"
+            android:transitionName="@string/fab_transition_name">
+
+            <ImageView
+                android:id="@+id/imagen_dom"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:layout_centerHorizontal="true"
+                android:layout_alignParentTop="true"
+                android:layout_marginTop="16dp" />
+
+            <TextView
+                android:id="@+id/nombre_dom"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/imagen_dom"
+                android:layout_marginBottom="5dp"
+                android:layout_marginTop="10dp"
+                android:layout_centerHorizontal="true"
+                android:elevation="3dp"
+                android:gravity="center"
+                android:lines="2"
+                android:text="Carlos Manuel Ortega Castillo"
+                android:textColor="@color/accent"
+                android:textSize="14dp"
+                android:textStyle="bold" />
+
+            <RelativeLayout
+                android:id="@+id/layot_pts"
+                android:layout_width="70dp"
+                android:layout_height="70dp"
+                android:layout_centerVertical="true"
+                android:layout_toEndOf="@+id/imagen_dom"
+                android:layout_toRightOf="@+id/imagen_dom"
+                android:layout_marginLeft="16dp"
+                android:background="@drawable/bg_circle"
+                android:gravity="center">
+
+                <TextView
+                    android:id="@+id/puntos_dom"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerHorizontal="true"
+                    android:layout_centerVertical="true"
+                    android:text="15"
+                    android:textSize="25dp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/puntos_dom"
+                    android:layout_marginTop="-10dp"
+                    android:layout_centerHorizontal="true"
+                    android:layout_centerVertical="true"
+                    android:text="puntos"
+                    android:textSize="11dp" />
+
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/layot_deliveries"
+                android:layout_width="70dp"
+                android:layout_height="70dp"
+                android:layout_centerVertical="true"
+                android:layout_toLeftOf="@id/imagen_dom"
+                android:layout_toStartOf="@id/imagen_dom"
+                android:layout_marginRight="16dp"
+                android:background="@drawable/bg_circle"
+                android:gravity="center">
+
+                <TextView
+                    android:id="@+id/total_dom"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerHorizontal="true"
+                    android:layout_centerVertical="true"
+                    android:text="28"
+                    android:textSize="25dp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/total_dom"
+                    android:layout_marginTop="-10dp"
+                    android:layout_centerHorizontal="true"
+                    android:layout_centerVertical="true"
+                    android:text="entregas"
+                    android:textSize="11dp" />
+
+            </RelativeLayout>
+
+        </RelativeLayout>
+
+        <TextView
+            android:id="@+id/text3"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/cardview_dom"
+            android:layout_centerHorizontal="true"
+            android:layout_marginTop="19dp"
+            android:text="PEDIDOS DISPONIBLES"
+            android:textColor="@color/secondary_text"
+            android:textSize="15dp"
+            android:textStyle="bold" />
+
+        <View
+            android:id="@+id/view"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_below="@+id/text3"
+            android:layout_marginBottom="5dp"
+            android:layout_marginTop="3dp"
+            android:layout_marginRight="15dp"
+            android:layout_marginLeft="15dp"
+            android:background="@color/divider" />
+
+        <android.support.v7.widget.RecyclerView
+            android:id="@+id/recyclerViewPedidos"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_below="@+id/view"
+            android:background="@android:color/transparent"
+            android:scrollbars="vertical"
+            android:textColor="@android:color/white"
+            android:layout_marginLeft="16dp"
+            android:layout_marginRight="16dp"/>
+
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/layout_pb_delivery"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_dialog_dark"
+        android:gravity="center"
+        android:padding="30dp"
+        android:visibility="invisible">
+
+        <TextView
+            android:id="@+id/txt_cargando_delivery"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerHorizontal="true"
+            android:layout_marginBottom="10dp"
+            android:layout_weight="1"
+            android:text="Cargando Pedido"
+            android:textColor="@android:color/white"
+            android:textStyle="bold" />
+
+        <ProgressBar
+            android:id="@+id/progressBar2"
+            style="?android:attr/progressBarStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/txt_cargando_delivery"
+            android:layout_centerHorizontal="true"
+            android:layout_centerInParent="false"
+            android:layout_weight="1"
+            android:progress="50" />
+    </RelativeLayout>
+</FrameLayout>
