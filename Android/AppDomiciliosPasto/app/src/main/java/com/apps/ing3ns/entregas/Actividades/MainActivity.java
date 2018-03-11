@@ -1,32 +1,20 @@
 package com.apps.ing3ns.entregas.Actividades;
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.graphics.Rect;
 import android.os.Build;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
-import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.transition.ChangeBounds;
 import android.transition.Explode;
 import android.transition.Fade;
-import android.transition.Slide;
-import android.transition.Transition;
-import android.transition.TransitionInflater;
 import android.transition.TransitionSet;
-import android.util.Log;
-import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewAnimationUtils;
-import android.view.animation.Animation;
 import android.widget.Toast;
 
 import com.apps.ing3ns.entregas.API.APIControllers.Domiciliario.DomiciliarioController;
@@ -41,14 +29,10 @@ import com.apps.ing3ns.entregas.Modelos.Domiciliario;
 import com.apps.ing3ns.entregas.R;
 import com.apps.ing3ns.entregas.Services.GpsServices.Constants;
 import com.apps.ing3ns.entregas.Services.GpsServices.ForegroundService;
-import com.apps.ing3ns.entregas.Services.NotificationServices.MyFirebaseMessagingService;
 import com.apps.ing3ns.entregas.Utils;
 import com.apps.ing3ns.entregas.UtilsPreferences;
-import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-
-import java.util.HashMap;
 
 public class MainActivity extends AppCompatActivity implements MenuListener, DomiciliarioListener, FragmentsListener {
 

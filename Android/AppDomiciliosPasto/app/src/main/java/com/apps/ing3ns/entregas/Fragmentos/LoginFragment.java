@@ -24,6 +24,8 @@ import com.apps.ing3ns.entregas.Modelos.Domiciliario;
 import com.apps.ing3ns.entregas.R;
 import com.apps.ing3ns.entregas.Utils;
 import com.apps.ing3ns.entregas.UtilsPreferences;
+import com.google.firebase.iid.FirebaseInstanceId;
+import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -65,6 +67,10 @@ public class LoginFragment extends Fragment implements DomiciliarioListener {
         prefs = getActivity().getSharedPreferences("Preferences", Context.MODE_PRIVATE);
         domiciliarioController = new DomiciliarioController(this);
 
+        FirebaseMessaging.getInstance().subscribeToTopic(Utils.TOPIC_STATE_0);
+        FirebaseMessaging.getInstance().unsubscribeFromTopic(Utils.TOPIC_STATE_1);
+        FirebaseMessaging.getInstance().unsubscribeFromTopic(Utils.TOPIC_STATE_2);
+
         btnEntrar.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -75,6 +81,7 @@ public class LoginFragment extends Fragment implements DomiciliarioListener {
                     HashMap<String,String> map = new HashMap<>();
                     map.put("email",email);
                     map.put("password",pass);
+                    map.put("tokenNotification", FirebaseInstanceId.getInstance().getToken());
                     domiciliarioController.signInDomiciliario(map);
                     cargando.setVisibility(View.VISIBLE);
                 }else{

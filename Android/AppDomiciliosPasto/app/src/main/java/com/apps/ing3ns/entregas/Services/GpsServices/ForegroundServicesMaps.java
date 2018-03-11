@@ -55,13 +55,11 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * Created by JuanDa on 27/08/2017.
+ * Created by JuanDa on 10/03/2018.
  */
 
-public class ForegroundService extends Service implements LocationListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, DomiciliarioListener, DeliveryListener {
-    private static final String LOG_TAG = "ForegroundService";
-    public static final String INTENT_ACTION = "DataReady";
-    private LocalBroadcastManager broadcaster;
+public class ForegroundServicesMaps extends Service implements LocationListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, DomiciliarioListener, DeliveryListener {
+    private static final String LOG_TAG = "ForegroundServiceMaps";
 
     DomiciliarioController domiciliarioController;
 
@@ -80,31 +78,9 @@ public class ForegroundService extends Service implements LocationListener, Goog
     Domiciliario domiciliario;
     Delivery delivery;
     DeliveryController deliveryController;
-    List<Delivery> deliveriesActivos = new ArrayList<>();
-    int numPedidosCercanos = 0;
     Location lastLocation;
-    boolean flagLogin = false;
 
-    private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String type = intent.getExtras().getString(MyFirebaseMessagingService.KEY_TYPE);
-            String deliveryJson = intent.getExtras().getString(MyFirebaseMessagingService.KEY_DELIVERY);
-            Delivery delivery = gson.fromJson(deliveryJson,Delivery.class);
 
-            switch (type) {
-                case MyFirebaseMessagingService.KEY_TYPE_ADD_DELIVERY:
-                    deliveriesActivos.add(delivery);
-                    Log.d("DELIVERY","ADD"+type+" "+deliveryJson);
-                    break;
-
-                case MyFirebaseMessagingService.KEY_TYPE_DELETE_DELIVERY:
-                    Delivery.removeDelivery(deliveriesActivos,delivery.get_id());
-                    Log.d("DELIVERY","RECIBIDA"+type+" "+deliveryJson);
-                    break;
-            }
-        }
-    };
 
     @Override
     public void onCreate() {
@@ -115,13 +91,8 @@ public class ForegroundService extends Service implements LocationListener, Goog
 
         preferences = getSharedPreferences("Preferences", Context.MODE_PRIVATE);
         gson = new GsonBuilder().create();
-        broadcaster = LocalBroadcastManager.getInstance(this);
         domiciliarioController = new DomiciliarioController(this);
         deliveryController = new DeliveryController(this);
-
-        LocalBroadcastManager.getInstance(this).registerReceiver((mMessageReceiver),
-                new IntentFilter(MyFirebaseMessagingService.INTENT_ACTION)
-        );
     }
 
     @Override
@@ -132,9 +103,6 @@ public class ForegroundService extends Service implements LocationListener, Goog
                 if (intent.getAction().equals(Constants.ACTION.START_FOREGROUND_SHARE)) {
                     //------------------------ Cargamos el domiciliario y delivery de las preferences -----------------
                     domiciliario = gson.fromJson(UtilsPreferences.getDomiciliario(preferences), Domiciliario.class);
-                    delivery = gson.fromJson(UtilsPreferences.getDelivery(preferences), Delivery.class);
-                    //------------------------ Recuperamos todos los Deliveries en estado 0 -------------------------
-                    if(delivery==null) deliveryController.getDeliveriesCondition(Utils.getHashMapState(0));
                     //--------------------------- INICIAMOS Y ACTIVAMOS EL GOOGLE API CLIENT ------------------------
                     googleApiLocationActive();
                 } else if (intent.getAction().equals(Constants.ACTION.STOP_FOREGROUND)) {
@@ -142,8 +110,6 @@ public class ForegroundService extends Service implements LocationListener, Goog
                     googleApiClientDisconnect();
                     cercaEnviado = false;
                     stopSelf();
-                } else if (intent.getAction().equals(Constants.ACTION.START_FOREGROUND)) {
-                    flagLogin = true;
                 }
             }
         }
@@ -154,7 +120,6 @@ public class ForegroundService extends Service implements LocationListener, Goog
     @Override
     public void onDestroy() {
         Log.d(LOG_TAG,"On Destroy Service");
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(mMessageReceiver);
         googleApiClientDisconnect();
         super.onDestroy();
     }
@@ -254,7 +219,7 @@ public class ForegroundService extends Service implements LocationListener, Goog
             mNotificationManager.notify(Constants.NOTIFICATION_ID.FOREGROUND_SERVICE_GPS, notification);
         }
         //------------------  Comportamiento del servicio cuando se esta REALIZANDO DELIVERY -----------------------
-        if(deliveryProcess == Constants.ACTION.DELIVERY_PROCESS){
+
             domiciliario.setPosition(new Position(location.getLatitude(),location.getLongitude()));
             HashMap<String,String> map = new HashMap<>();
             map.put("position",gson.toJson(domiciliario.getPosition()));
@@ -270,51 +235,7 @@ public class ForegroundService extends Service implements LocationListener, Goog
                     //Cambio el estado del domiciliario y/o pedido
                 }
             }
-        }
-        //---------------  Comportamiento del servicio cuando se esta BUSCANDO DELIVERY CERCANO ---------------------
-        if(deliveryProcess == Constants.ACTION.SEARCH_DELIVERY) {
-            //-------- Compruebo cuales de estos delieries estan cerca del domiciliario ---------------
-             List<Delivery> nearbyDeliveries = Delivery.getNearbyDeliveries(deliveriesActivos, lastLocation, 0.5);
-             List<Delivery> lastNearbyDeliveries = gson.fromJson(UtilsPreferences.getNearbyDeliveries(preferences),new TypeToken<List<Delivery>>(){}.getType());
 
-             if(lastNearbyDeliveries!=null) Log.d("Deliveries Compare"," "+nearbyDeliveries.size()+ " " + lastNearbyDeliveries.size());
-             if(nearbyDeliveries.size()>0) {
-                 //-------- Compruebo que halla ocurrido un cambio en la lista de Nerby Deliveries ----------------
-                 if(!Delivery.compareListDeliveries(nearbyDeliveries,lastNearbyDeliveries)) {
-                     Log.d("Deliveries Compare"," "+nearbyDeliveries.size()+ " " + lastNearbyDeliveries.size());
-                     if(lastNearbyDeliveries.size()<nearbyDeliveries.size()) {
-                         NotificationBackground notification = new NotificationBackground("DeOne","Hay un nuevo pedido disponible");
-                         sendNotificationFull(notification);
-                     }
-                     numPedidosCercanos = nearbyDeliveries.size();
-                     UtilsPreferences.saveNearbyDeliveries(preferences, gson.toJson(nearbyDeliveries));
-                     //-------- Uso intent para avisarle al fragment Domiciliario que puede cargar los deliveries cercanos en las preferences ---------------
-                     Intent intent = new Intent(INTENT_ACTION);
-                     intent.putExtra("data", true);
-                     if(broadcaster!=null) {
-                         broadcaster.sendBroadcast(intent);
-                     }
-                 }
-             }
-        }
-    }
-
-    private void sendNearbyDeliveriesFirstTime(){
-        if(flagLogin) {
-            lastLocation = gson.fromJson(UtilsPreferences.getLastLocation(preferences),Location.class);
-            if(lastLocation != null) {
-                List<Delivery> nearbyDeliveries = Delivery.getNearbyDeliveries(deliveriesActivos, lastLocation, 0.5);
-                if (nearbyDeliveries.size() > 0) {
-                    numPedidosCercanos = nearbyDeliveries.size();
-                    UtilsPreferences.saveNearbyDeliveries(preferences, gson.toJson(nearbyDeliveries));
-                    //-------- Uso intent para avisarle al fragment Domiciliario que puede cargar los deliveries cercanos en las preferences ---------------
-                    Intent intent = new Intent(INTENT_ACTION);
-                    intent.putExtra("data", true);
-                    broadcaster.sendBroadcast(intent);
-                }
-                flagLogin = false;
-            }
-        }
     }
 
     private void setTextNotification(String textNotification) {
@@ -328,57 +249,6 @@ public class ForegroundService extends Service implements LocationListener, Goog
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true).build();
-    }
-
-    private void sendNotificationFull(NotificationBackground notification) {
-
-        String title = notification.getTitle();
-        String body = notification.getBody();
-
-        Intent intent = new Intent(this, SplashActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this,0, intent, PendingIntent.FLAG_ONE_SHOT);
-
-        Notification.Builder notificationBuilder;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            notificationBuilder = new Notification.Builder(this, "notification_ch_1");
-        } else {
-            notificationBuilder = new Notification.Builder(this);
-        }
-
-        notificationBuilder
-                .setContentIntent(pendingIntent)
-                .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.mipmap.ic_moto))
-                .setSmallIcon(R.drawable.myicon)
-                .setContentTitle(title)
-                .setStyle(new Notification.BigTextStyle().bigText(notification.getBody()))
-                .setContentText(body)
-                .setVibrate(new long[] {100, 250, 100, 500})
-                .setAutoCancel(true);
-
-        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (notificationManager != null) {
-            notificationManager.notify(0, notificationBuilder.build());
-        }
-    }
-
-    private class NotificationBackground {
-        //Notification
-        String title;
-        String body;
-
-        public NotificationBackground(String title, String body) {
-            this.title = title;
-            this.body = body;
-        }
-
-        public String getTitle() {
-            return title;
-        }
-
-        public String getBody() {
-            return body;
-        }
     }
 
     //----------------------- REVISAR POSITION DE DOMICILIARIO ---------------------
@@ -449,8 +319,6 @@ public class ForegroundService extends Service implements LocationListener, Goog
         //-------- Recibo todos los deliveries en estado 0------
         Log.d(LOG_TAG,"Posicion DOMICILIARIO en SERVER");
         UtilsPreferences.saveDeliveries(preferences,gson.toJson(deliveries));
-        deliveriesActivos = deliveries;
-        sendNearbyDeliveriesFirstTime();
     }
 
     @Override

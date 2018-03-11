@@ -6,6 +6,7 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.widget.ImageView;
 
+import com.apps.ing3ns.entregas.Actividades.SplashActivity;
 import com.apps.ing3ns.entregas.Modelos.Delivery;
 import com.apps.ing3ns.entregas.Modelos.Domiciliario;
 import com.apps.ing3ns.entregas.transforms.RoundedTransformation;
@@ -30,6 +31,11 @@ public class Utils {
     public static final String KEY_LOGIN_FRAGMENT = "loginFragment";
     public static final String KEY_DOMICILIARIO_FRAGMENT = "domiciliarioFragment";
     public static final String KEY_MAP_FRAGMENT = "mapFragment";
+
+
+    public static final String TOPIC_STATE_0 = "STATE_0";
+    public static final String TOPIC_STATE_1 = "STATE_1";
+    public static final String TOPIC_STATE_2 = "STATE_2";
 
     //-----------------------------------------------------------------------------------------
     //--------------------- FUNCIONES DISTANCIA CON CLIENTE -----------------------------------

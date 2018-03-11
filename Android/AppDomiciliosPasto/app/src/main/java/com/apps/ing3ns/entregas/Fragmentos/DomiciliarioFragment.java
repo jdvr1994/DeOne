@@ -60,6 +60,7 @@ import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -114,6 +115,7 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            Log.d("Deliveries Compare","Actualizacion");
             Toast.makeText(getContext(), "Pedidos actualizados", Toast.LENGTH_SHORT).show();
             String deliveriesJson = UtilsPreferences.getNearbyDeliveries(preferences);
             List<Delivery> deliveries = gson.fromJson(deliveriesJson,new TypeToken<List<Delivery>>(){}.getType());
@@ -137,7 +139,6 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
         pedidosDomiciliario.setText(String.valueOf(domiciliario.getDeliveries().size()));
     }
 
-    @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_domiciliario, container, false);
@@ -147,6 +148,11 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
 
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
+
+        FirebaseMessaging.getInstance().subscribeToTopic(Utils.TOPIC_STATE_1);
+        FirebaseMessaging.getInstance().unsubscribeFromTopic(Utils.TOPIC_STATE_0);
+        FirebaseMessaging.getInstance().unsubscribeFromTopic(Utils.TOPIC_STATE_2);
+
         preferences = getActivity().getSharedPreferences("Preferences", Context.MODE_PRIVATE);
         domiciliario = gson.fromJson(UtilsPreferences.getDomiciliario(preferences),Domiciliario.class);
         setCardViewDomiciliario(domiciliario);
@@ -154,10 +160,6 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
         deliveryController = new DeliveryController(this);
         clientController = new ClientController(this);
         domiciliarioController = new DomiciliarioController(this);
-
-        layoutManager = new LinearLayoutManager(getContext());
-        layoutManager.setReverseLayout(true);
-        layoutManager.setStackFromEnd(true);
 
         List<Delivery> deliveries = new ArrayList<>();
         adapter = new AdaptadorPedidos(deliveries, R.layout.cardview_pedido, getActivity(), new AdaptadorPedidos.OnItemClickListener() {
@@ -171,15 +173,16 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
 
         domiciliarioController.updateDomiciliario(domiciliario.get_id(),Utils.getHashMapTokenAndState(1));
 
+        layoutManager = new LinearLayoutManager(getContext());
+        layoutManager.setReverseLayout(true);
+        layoutManager.setStackFromEnd(true);
         recyclerViewPedidos.setHasFixedSize(true);
-
         recyclerViewPedidos.setLayoutManager(layoutManager);
         recyclerViewPedidos.setAdapter(adapter);
 
         gpsServiceAction(Constants.ACTION.START_FOREGROUND);
         //--------------------------- INICIAMOS Y ACTIVAMOS EL GOOGLE API CLIENT ------------------------
         locationManager = (LocationManager) getActivity().getSystemService(Context.LOCATION_SERVICE);
-        googleApiClientInit();
         PermissionsGPS();
     }
 
@@ -257,15 +260,14 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     @Override
     public void onStart() {
         super.onStart();
-        LocalBroadcastManager.getInstance(getContext()).registerReceiver((mMessageReceiver),
-                new IntentFilter(ForegroundService.INTENT_ACTION)
-        );
+
     }
 
     @Override
     public void onStop() {
-        super.onStop();
+        Log.d("DOMICILIARIO FRAG","On Stop");
         LocalBroadcastManager.getInstance(getContext()).unregisterReceiver(mMessageReceiver);
+        super.onStop();
     }
 
     @Override
@@ -323,9 +325,9 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     public void googleApiLocationActive() {
         mLocationRequest = null;
         mLocationRequest = LocationRequest.create();
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        mLocationRequest.setInterval(30 * 1000);
-        mLocationRequest.setFastestInterval(30* 1000);
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_LOW_POWER);
+        mLocationRequest.setInterval(30*60*1000);
+        mLocationRequest.setFastestInterval(30*60*1000);
 
         fusedLocationProviderApi = LocationServices.FusedLocationApi;
 
@@ -373,6 +375,9 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
         if(mGoogleApiClient.isConnected()){
             fusedLocationProviderApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
             gpsServiceAction(Constants.ACTION.START_FOREGROUND_SHARE);
+            LocalBroadcastManager.getInstance(getContext()).registerReceiver((mMessageReceiver),
+                    new IntentFilter(ForegroundService.INTENT_ACTION)
+            );
         }
     }
 
@@ -400,7 +405,6 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
 
     @Override
     public void getDeliveries(List<Delivery> deliveries) {
-        setRecyclerViewPedidos(deliveries);
     }
 
     @Override
@@ -415,13 +419,12 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
 
     @Override
     public void getDeliveriesConditionSuccessful(List<Delivery> deliveries) {
-        setRecyclerViewPedidos(deliveries);
-        UtilsPreferences.saveDeliveries(preferences,gson.toJson(deliveries));
     }
 
     @Override
     public void getClientSuccessful(Client client) {
         UtilsPreferences.saveClient(preferences,gson.toJson(client));
+        LocalBroadcastManager.getInstance(getContext()).unregisterReceiver(mMessageReceiver);
         listener.setOnChangeToMap(Utils.KEY_DOMICILIARIO_FRAGMENT,R.id.cardview_dom);
     }
 
@@ -431,8 +434,9 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     }
 
     @Override
-    public void updateDomiciliarioSuccessful(Domiciliario domiciliario) {
-        UtilsPreferences.saveDomiciliario(preferences,gson.toJson(domiciliario));
+    public void updateDomiciliarioSuccessful(Domiciliario domiciliarioUpdated) {
+        UtilsPreferences.saveDomiciliario(preferences,gson.toJson(domiciliarioUpdated));
+        domiciliario = domiciliarioUpdated;
     }
 
     @Override
