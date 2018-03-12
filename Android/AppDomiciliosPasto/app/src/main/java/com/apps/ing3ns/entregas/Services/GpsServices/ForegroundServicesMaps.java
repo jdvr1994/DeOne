@@ -316,9 +316,6 @@ public class ForegroundServicesMaps extends Service implements LocationListener,
 
     @Override
     public void getDeliveriesConditionSuccessful(List<Delivery> deliveries) {
-        //-------- Recibo todos los deliveries en estado 0------
-        Log.d(LOG_TAG,"Posicion DOMICILIARIO en SERVER");
-        UtilsPreferences.saveDeliveries(preferences,gson.toJson(deliveries));
     }
 
     @Override

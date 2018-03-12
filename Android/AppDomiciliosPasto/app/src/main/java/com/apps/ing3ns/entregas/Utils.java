@@ -101,7 +101,7 @@ public class Utils {
         if(imageURL!=null){if(imageURL.length()==0) imageURL = "http://imagen";}
         else imageURL = "http://imagen";
         final String finalImageURL = imageURL;
-        Picasso.with(context).load(imageURL).networkPolicy(NetworkPolicy.OFFLINE).fit().placeholder(R.drawable.slide1).into(imageView, new com.squareup.picasso.Callback() {
+        Picasso.with(context).load(imageURL).networkPolicy(NetworkPolicy.OFFLINE).fit().placeholder(R.drawable.load_img).into(imageView, new com.squareup.picasso.Callback() {
             @Override
             public void onSuccess() {
             }
@@ -111,7 +111,7 @@ public class Utils {
                 Picasso.with(context)
                         .load(finalImageURL)
                         .fit()
-                        .placeholder(R.drawable.slide1)
+                        .placeholder(R.drawable.load_img)
                         .into(imageView, new com.squareup.picasso.Callback() {
                             @Override
                             public void onSuccess() {
@@ -132,7 +132,7 @@ public class Utils {
         if(imageURL!=null){if(imageURL.length()==0) imageURL = "http://imagen";}
         else imageURL = "http://imagen";
         final String finalImageURL = imageURL;
-        Picasso.with(context).load(imageURL).networkPolicy(NetworkPolicy.OFFLINE).fit().transform(new RoundedTransformation()).placeholder(R.drawable.slide1).into(imageView, new com.squareup.picasso.Callback() {
+        Picasso.with(context).load(imageURL).networkPolicy(NetworkPolicy.OFFLINE).fit().transform(new RoundedTransformation()).placeholder(R.drawable.load_img).into(imageView, new com.squareup.picasso.Callback() {
             @Override
             public void onSuccess() {
             }
@@ -143,7 +143,7 @@ public class Utils {
                         .load(finalImageURL)
                         .fit()
                         .transform(new RoundedTransformation())
-                        .placeholder(R.drawable.slide1)
+                        .placeholder(R.drawable.load_img)
                         .into(imageView, new com.squareup.picasso.Callback() {
                             @Override
                             public void onSuccess() {

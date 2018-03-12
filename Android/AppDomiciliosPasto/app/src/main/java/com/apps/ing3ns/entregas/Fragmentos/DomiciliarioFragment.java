@@ -423,6 +423,7 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
 
     @Override
     public void getClientSuccessful(Client client) {
+        gpsServiceAction(Constants.ACTION.STOP_FOREGROUND);
         UtilsPreferences.saveClient(preferences,gson.toJson(client));
         LocalBroadcastManager.getInstance(getContext()).unregisterReceiver(mMessageReceiver);
         listener.setOnChangeToMap(Utils.KEY_DOMICILIARIO_FRAGMENT,R.id.cardview_dom);

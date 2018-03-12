@@ -11,7 +11,10 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationManager;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
@@ -77,21 +80,15 @@ import java.util.List;
 /**
  * A simple {@link Fragment} subclass.
  */
-public class MapFragment extends Fragment implements MostrarRutaListener,OnMapReadyCallback,LocationListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, DeliveryListener, DomiciliarioListener {
+public class MapFragment extends Fragment implements MostrarRutaListener,OnMapReadyCallback, DeliveryListener, DomiciliarioListener {
+
+    private final int PHONE_CALL_CODE = 100;
     //----------------------- SHARED PREFERENCES-----------------
     public SharedPreferences preferences;
     FragmentsListener listener;
     DeliveryController deliveryController;
     DomiciliarioController domiciliarioController;
     Gson gson;
-    //-------------------------------------- GOOGLE API CLIENT ----------------------------
-    LocationRequest mLocationRequest;
-    GoogleApiClient mGoogleApiClient;
-    FusedLocationProviderApi fusedLocationProviderApi;
-    PendingResult<LocationSettingsResult> result;
-    final static int REQUEST_LOCATION = 198;
-    private static final int MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 3;
-    Status statusGlobal;
 
     PolylineOptions polylineOptionsRuta;
     Polyline lineCamino;
@@ -99,7 +96,6 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
     private View rootView;
     private GoogleMap gMap;
     private MapView mapView;
-    LocationManager locationManager;
     private Marker markerDomiciliario;
     private Marker markerAddressStart;
     Delivery delivery;
@@ -142,12 +138,12 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         deliveryController = new DeliveryController(this);
         domiciliarioController = new DomiciliarioController(this);
         preferences = getActivity().getSharedPreferences("Preferences", Context.MODE_PRIVATE);
-        delivery = gson.fromJson(UtilsPreferences.getDelivery(preferences),Delivery.class);
-        client = gson.fromJson(UtilsPreferences.getClient(preferences),Client.class);
-        domiciliario = gson.fromJson(UtilsPreferences.getDomiciliario(preferences),Domiciliario.class);
-        deliveryController.getDelivery(delivery.get_id());
+        //delivery = gson.fromJson(UtilsPreferences.getDelivery(preferences),Delivery.class);
+        //client = gson.fromJson(UtilsPreferences.getClient(preferences),Client.class);
+        //domiciliario = gson.fromJson(UtilsPreferences.getDomiciliario(preferences),Domiciliario.class);
+        //deliveryController.getDelivery(delivery.get_id());
 
-        setCardViewDelivery(delivery,client);
+        //setCardViewDelivery(delivery,client);
 
 
         //------------------- COMPROBAR CONEXION MAPAS ---------------------
@@ -165,9 +161,6 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         }
 
         //--------------------------- INICIAMOS Y ACTIVAMOS EL GOOGLE API CLIENT ------------------------
-        locationManager = (LocationManager) getActivity().getSystemService(Context.LOCATION_SERVICE);
-        //PermissionsGPS();
-
         btnDeliveryOK.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -195,10 +188,15 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
             }
         });
 
+        btnCall.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                llamarUsuario();
+            }
+        });
+
         Log.d("MAP FRAGMENT","On View Created 2");
 
-        //Log.d("MAP", "INICIO FOREGROUND MAP");
-        //gpsServiceAction(Constants.ACTION.START_FOREGROUND_SHARE);
     }
 
     private void setCardViewDelivery(Delivery delivery, Client client) {
@@ -224,90 +222,86 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         textCargando = view.findViewById(R.id.txt_cargando_map);
     }
 
-    //------------------------------------------PERMISOS DE UBICACION GPS -----------------------------------
-    //------------------------------------------------------------------------------------------------------
-    public void PermissionsGPS() {
-        if (ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // Should we show an explanation?
-            if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(), Manifest.permission.ACCESS_FINE_LOCATION)) {
-                ActivityCompat.requestPermissions(getActivity(),
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                        MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
-            }else {
-                ActivityCompat.requestPermissions(getActivity(),
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                        MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
-            }
-            return;
-        } else {
-            googleApiLocationActive();
-        }
 
-    }
-
+    //------------------------------- PERMISOS TELEFONO ------------------------------------
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        //super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         switch (requestCode) {
-            case MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION: {
-                // If request is cancelled, the result arrays are empty.
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    googleApiLocationActive();
-                } else {
-                    ActivityCompat.requestPermissions(getActivity(),
-                            new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                            MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
+            case PHONE_CALL_CODE:
+                String permission = permissions[0];
+                int result = grantResults[0];
+                if (permission.equals(Manifest.permission.CALL_PHONE)) {
+                    if (result == PackageManager.PERMISSION_GRANTED) {
+                        String phoneNumber = delivery.getPhone();
+                        Intent intentCall = new Intent(Intent.ACTION_CALL, Uri.parse("tel:" + phoneNumber));
+                        if (ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) return;
+                        startActivity(intentCall);
+                    }else {
+                        Toast.makeText(getActivity(), "Tu negaste el permiso para llamadas", Toast.LENGTH_SHORT).show();
+                    }
                 }
-                return;
+                break;
+            default:
+                super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+                break;
+        }
+    }
+
+    private boolean CheckPermission(String permission) {
+        int result = getActivity().checkCallingOrSelfPermission(permission);
+        return result == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void OlderVersions(String phoneNumber) {
+        Intent intentCall = new Intent(Intent.ACTION_CALL, Uri.parse("tel:" + phoneNumber));
+        if (CheckPermission(Manifest.permission.CALL_PHONE)) {
+            startActivity(intentCall);
+        } else {
+            Toast.makeText(getActivity(), "Tu negaste el permiso para llamadas", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void llamarUsuario() {
+        String phoneNumber = delivery.getPhone();
+        if (phoneNumber != null && !phoneNumber.isEmpty()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (CheckPermission(Manifest.permission.CALL_PHONE)) {
+                    Intent i = new Intent(Intent.ACTION_CALL, Uri.parse("tel:" + phoneNumber));
+                    if (ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) return;
+                    startActivity(i);
+                } else {
+                    if (!shouldShowRequestPermissionRationale(Manifest.permission.CALL_PHONE)) {
+                        requestPermissions(new String[]{Manifest.permission.CALL_PHONE}, PHONE_CALL_CODE);
+                    } else {
+                        Toast.makeText(getActivity(), "Por favor habilita los permisos de Telefono o Llamadas", Toast.LENGTH_SHORT).show();
+                        Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                        i.addCategory(Intent.CATEGORY_DEFAULT);
+                        i.setData(Uri.parse("package:" + getActivity().getPackageName()));
+                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        i.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
+                        i.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
+                        startActivity(i);
+                    }
+                }
+            } else {
+                OlderVersions(phoneNumber);
             }
+        } else {
+            Toast.makeText(getActivity(), "No se puede acceder al numero de telefono", Toast.LENGTH_SHORT).show();
         }
     }
 
     //-------------------------CLICLO DE VIDA FRAGMENT---------------------------------
     //---------------------------------------------------------------------------------
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        //--------------------------GOOGLE API CLIENT --------------------------
-        //final LocationSettingsStates states = LocationSettingsStates.fromIntent(data);
-        switch (requestCode) {
-            case REQUEST_LOCATION:
-                switch (resultCode) {
-                    case Activity.RESULT_OK: {
-                        googleApiLocationActive();
-                        break;
-                    }
-                    case Activity.RESULT_CANCELED: {
-                        try {
-                            if(!mGoogleApiClient.isConnected()) statusGlobal.startResolutionForResult(getActivity(), REQUEST_LOCATION);
-                        } catch (IntentSender.SendIntentException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    default: {
-                        break;
-                    }
-                }
-                break;
-        }
-    }
 
     @Override
     public void onResume() {
         super.onResume();
-        googleApiClientInit();
-        if (!mGoogleApiClient.isConnected()) {
-            PermissionsGPS();
-        }
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        if (mGoogleApiClient.isConnected()) {
-            mGoogleApiClient.disconnect();
-        }
     }
 
     @Override
@@ -324,9 +318,6 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
     public void onDetach() {
         super.onDetach();
         listener = null;
-        if (mGoogleApiClient.isConnected()) {
-            mGoogleApiClient.disconnect();
-        }
     }
 
     //---------------------------- MAP READY AND LOCATION CHANGED -----------------------------
@@ -340,6 +331,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         MarkerInit();
     }
 
+    /*
     @Override
     public void onLocationChanged(Location location) {
         markerDomiciliario.setPosition(new LatLng(location.getLatitude(),location.getLongitude()));
@@ -347,6 +339,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         // Si esta muy cerca del pedido entonces actualizo el DELIVERY A ESTADO 2
         // deliveryController.updateDelivery(delivery.get_id(),Utils.getHashMapState(2));
     }
+    */
 
     public void MarkerInit(){
         Location location = gson.fromJson(UtilsPreferences.getLastLocation(preferences), Location.class);
@@ -359,7 +352,8 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         );
 
         markerAddressStart = gMap.addMarker(new MarkerOptions()
-                .position(new LatLng(client.getPosition().getLat(),client.getPosition().getLng()))
+                //.position(new LatLng(client.getPosition().getLat(),client.getPosition().getLng()))
+                .position(pasto)
                 .title(getResources().getString(R.string.client_position_title))
                 .snippet(getResources().getString(R.string.client_position_message))
                 .icon(BitmapDescriptorFactory.fromResource(R.mipmap.ic_marker_destino))
@@ -392,70 +386,6 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
                 .build();
 
         gMap.animateCamera(CameraUpdateFactory.newCameraPosition(camera));
-    }
-
-    //------------------------------------GOOGLE API CLIENT LOCATION -----------------------------
-    //-----------------------------------------------------------------------------------------
-    public void googleApiLocationActive() {
-        mLocationRequest = null;
-        mLocationRequest = LocationRequest.create();
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
-        mLocationRequest.setInterval(5 * 1000);
-        mLocationRequest.setFastestInterval(5* 1000);
-        mLocationRequest.setSmallestDisplacement(20);
-
-        fusedLocationProviderApi = LocationServices.FusedLocationApi;
-
-        googleApiClientInit();
-        Log.d("MAP", "GOOGLE API CLIENT CONNECTING....");
-        mGoogleApiClient.connect();
-    }
-
-    public void googleApiClientInit(){
-        mGoogleApiClient = new GoogleApiClient.Builder(getContext())
-                .addApi(LocationServices.API)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this).build();
-    }
-
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
-        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(mLocationRequest);
-        builder.setAlwaysShow(true);
-
-        result = LocationServices.SettingsApi.checkLocationSettings(mGoogleApiClient, builder.build());
-        result.setResultCallback(new ResultCallback<LocationSettingsResult>() {
-            @Override
-            public void onResult(LocationSettingsResult result) {
-                final Status status = result.getStatus();
-                statusGlobal = status;
-                if (status.getStatusCode()==LocationSettingsStatusCodes.RESOLUTION_REQUIRED) {
-                    try {
-                        status.startResolutionForResult(getActivity(), REQUEST_LOCATION);
-                    } catch (IntentSender.SendIntentException e) {}
-                }
-            }
-        });
-
-        if (ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return;
-        }
-
-        if(mGoogleApiClient.isConnected()){
-            fusedLocationProviderApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
-            //Log.d("MAP", "INICIO FOREGROUND MAP");
-            //gpsServiceAction(Constants.ACTION.START_FOREGROUND_SHARE);
-        }
-    }
-
-    @Override
-    public void onConnectionSuspended(int i) {
-
-    }
-
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-
     }
 
     //----------------------------EVENTOS MOSTRAR RUTA --------------------------------
@@ -506,7 +436,6 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
     //-------------------------- START AND STOP SERVICE FOREGROUND -------------------------
     public void gpsServiceAction(String action){
         Intent startIntent = new Intent(getActivity(), ForegroundService.class);
-        //startIntent.putExtra("usuario",gson.toJson(pedido.getIdUsuario()));
         startIntent.setAction(action);
         getActivity().startService(startIntent);
     }

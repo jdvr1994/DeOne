@@ -49,7 +49,7 @@ public class UtilsPreferences {
     public static void saveDomiciliario(SharedPreferences preferences, String domiciliario) {
         SharedPreferences.Editor editor = preferences.edit();
         editor.putString(KEY_DOMICILIARIO,domiciliario);
-        editor.commit();
+        editor.apply();
     }
 
     public static void removeDomiciliario(SharedPreferences preferences) {
@@ -74,22 +74,6 @@ public class UtilsPreferences {
         editor.apply();
     }
 
-    public static String getDeliveries(SharedPreferences preferences) {
-        return preferences.getString(KEY_DELIVERIES,null);
-    }
-
-    public static void saveDeliveries(SharedPreferences preferences, String deliveries) {
-        SharedPreferences.Editor editor = preferences.edit();
-        editor.putString(KEY_DELIVERIES,deliveries);
-        editor.apply();
-    }
-
-    public static void removeDeliveries(SharedPreferences preferences) {
-        SharedPreferences.Editor editor = preferences.edit();
-        editor.remove(KEY_DELIVERIES);
-        editor.apply();
-    }
-
     public static String getNearbyDeliveries(SharedPreferences preferences) {
         return preferences.getString(KEY_DELIVERIES,null);
     }
@@ -97,7 +81,7 @@ public class UtilsPreferences {
     public static void saveNearbyDeliveries(SharedPreferences preferences, String deliveries) {
         SharedPreferences.Editor editor = preferences.edit();
         editor.putString(KEY_DELIVERIES,deliveries);
-        editor.commit();
+        editor.apply();
     }
 
     public static void removeNearbyDeliveries(SharedPreferences preferences) {
@@ -113,7 +97,7 @@ public class UtilsPreferences {
     public static void saveLastLocation(SharedPreferences preferences, String location) {
         SharedPreferences.Editor editor = preferences.edit();
         editor.putString(KEY_LOCATION,location);
-        editor.commit();
+        editor.apply();
     }
 
     public static void removeLastLocation(SharedPreferences preferences) {
@@ -129,7 +113,7 @@ public class UtilsPreferences {
     public static void saveClient(SharedPreferences preferences, String client) {
         SharedPreferences.Editor editor = preferences.edit();
         editor.putString(KEY_CLIENT,client);
-        editor.commit();
+        editor.apply();
     }
 
     public static void removeClient(SharedPreferences preferences) {

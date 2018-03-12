@@ -155,14 +155,17 @@ public class Delivery {
 
     public static boolean compareListDeliveries(List<Delivery> deliveries1, List<Delivery> deliveries2){
         boolean equal = true;
-        if(deliveries1.size()!=deliveries2.size()) equal = false;
-        else {
-            int index = 0;
-            for (Delivery delivery: deliveries1) {
-                if(!delivery.get_id().equals(deliveries2.get(index).get_id()))equal = false;
-                index ++;
+        if(deliveries1!=null & deliveries2!=null) {
+            if (deliveries1.size() != deliveries2.size()) equal = false;
+            else {
+                int index = 0;
+                for (Delivery delivery : deliveries1) {
+                    if (!delivery.get_id().equals(deliveries2.get(index).get_id())) equal = false;
+                    index++;
+                }
             }
-        }
+        }else equal = false;
+
         return equal;
     }
 }
