@@ -22,11 +22,13 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.apps.ing3ns.entregas.API.APIControllers.Delivery.DeliveryController;
 import com.apps.ing3ns.entregas.API.APIControllers.Delivery.DeliveryListener;
 import com.apps.ing3ns.entregas.API.APIControllers.Domiciliario.DomiciliarioController;
 import com.apps.ing3ns.entregas.API.APIControllers.Domiciliario.DomiciliarioListener;
+import com.apps.ing3ns.entregas.Actividades.MainActivity;
 import com.apps.ing3ns.entregas.Actividades.SplashActivity;
 import com.apps.ing3ns.entregas.Modelos.Delivery;
 import com.apps.ing3ns.entregas.Modelos.Domiciliario;
@@ -52,6 +54,7 @@ import com.google.gson.reflect.TypeToken;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 /**
@@ -95,12 +98,10 @@ public class ForegroundService extends Service implements LocationListener, Goog
             switch (type) {
                 case MyFirebaseMessagingService.KEY_TYPE_ADD_DELIVERY:
                     deliveriesActivos.add(delivery);
-                    Log.d("DELIVERY","ADD"+type+" "+deliveryJson);
                     break;
 
                 case MyFirebaseMessagingService.KEY_TYPE_DELETE_DELIVERY:
                     Delivery.removeDelivery(deliveriesActivos,delivery.get_id());
-                    Log.d("DELIVERY","RECIBIDA"+type+" "+deliveryJson);
                     break;
             }
         }
@@ -109,7 +110,6 @@ public class ForegroundService extends Service implements LocationListener, Goog
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.d(LOG_TAG,"On create Services");
         intentMainActivity = new Intent(this, SplashActivity.class);
         intentMainActivity.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
@@ -126,7 +126,6 @@ public class ForegroundService extends Service implements LocationListener, Goog
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d(LOG_TAG,"On Start Command");
         if(intent!=null) {
             if (intent.getAction() != null) {
                 if (intent.getAction().equals(Constants.ACTION.START_FOREGROUND_SHARE)) {
@@ -134,9 +133,12 @@ public class ForegroundService extends Service implements LocationListener, Goog
                     domiciliario = gson.fromJson(UtilsPreferences.getDomiciliario(preferences), Domiciliario.class);
                     delivery = gson.fromJson(UtilsPreferences.getDelivery(preferences), Delivery.class);
                     //------------------------ Recuperamos todos los Deliveries en estado 0 -------------------------
-                    if(delivery==null) deliveryController.getDeliveriesCondition(Utils.getHashMapState(0));
+                    deliveryController.getDeliveriesCondition(Utils.getHashMapState(0));
                     //--------------------------- INICIAMOS Y ACTIVAMOS EL GOOGLE API CLIENT ------------------------
                     googleApiLocationActive();
+                    pendingIntent = PendingIntent.getActivity(this, 0, intentMainActivity, PendingIntent.FLAG_ONE_SHOT);
+                    setTextNotification("Compartiendo Posicion con el Cliente");
+                    startForeground(Constants.NOTIFICATION_ID.FOREGROUND_SERVICE_GPS, notification);
                 } else if (intent.getAction().equals(Constants.ACTION.STOP_FOREGROUND)) {
                     stopForeground(true);
                     googleApiClientDisconnect();
@@ -153,7 +155,6 @@ public class ForegroundService extends Service implements LocationListener, Goog
 
     @Override
     public void onDestroy() {
-        Log.d(LOG_TAG,"On Destroy Service");
         LocalBroadcastManager.getInstance(this).unregisterReceiver(mMessageReceiver);
         googleApiClientDisconnect();
         super.onDestroy();
@@ -176,7 +177,6 @@ public class ForegroundService extends Service implements LocationListener, Goog
     }
 
     public void googleApiLocationActive() {
-        Log.d(LOG_TAG,"Services----Google api location active");
         if(fusedLocationProviderApi!=null) {
             if (mGoogleApiClient != null) {
                 if (mGoogleApiClient.isConnected()) {
@@ -197,7 +197,7 @@ public class ForegroundService extends Service implements LocationListener, Goog
     }
 
     public void googleApiClientInit() {
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
+        mGoogleApiClient = new GoogleApiClient.Builder(getApplicationContext())
                 .addApi(LocationServices.API)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this).build();
@@ -220,12 +220,7 @@ public class ForegroundService extends Service implements LocationListener, Goog
             return;
         }
 
-        if(mGoogleApiClient.isConnected()) {
-            fusedLocationProviderApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
-            pendingIntent = PendingIntent.getActivity(this, 0, intentMainActivity, PendingIntent.FLAG_ONE_SHOT);
-            setTextNotification("Buscando ");
-            startForeground(Constants.NOTIFICATION_ID.FOREGROUND_SERVICE_GPS, notification);
-        }
+        if(mGoogleApiClient.isConnected()) fusedLocationProviderApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
     }
 
     @Override
@@ -241,7 +236,6 @@ public class ForegroundService extends Service implements LocationListener, Goog
     @Override
     public void onLocationChanged(Location location) {
         UtilsPreferences.saveLastLocation(preferences,gson.toJson(location));
-        lastLocation = location;
         if (delivery != null) locationchangeBehavior("Compartiendo Posicion con el Cliente:::" + new Random().nextInt(), Constants.ACTION.DELIVERY_PROCESS, location);
         else locationchangeBehavior("Buscando pedidos cercanos", Constants.ACTION.SEARCH_DELIVERY , location);
     }
@@ -274,15 +268,12 @@ public class ForegroundService extends Service implements LocationListener, Goog
         //---------------  Comportamiento del servicio cuando se esta BUSCANDO DELIVERY CERCANO ---------------------
         if(deliveryProcess == Constants.ACTION.SEARCH_DELIVERY) {
             //-------- Compruebo cuales de estos delieries estan cerca del domiciliario ---------------
-             List<Delivery> nearbyDeliveries = Delivery.getNearbyDeliveries(deliveriesActivos, lastLocation, 0.5);
+             List<Delivery> nearbyDeliveries = Delivery.getNearbyDeliveries(deliveriesActivos, lastLocation, 1.9);
              List<Delivery> lastNearbyDeliveries = gson.fromJson(UtilsPreferences.getNearbyDeliveries(preferences),new TypeToken<List<Delivery>>(){}.getType());
-
-             if(lastNearbyDeliveries!=null) Log.d("Deliveries Compare"," "+nearbyDeliveries.size()+ " " + lastNearbyDeliveries.size());
              if(nearbyDeliveries.size()>0) {
                  //-------- Compruebo que halla ocurrido un cambio en la lista de Nerby Deliveries ----------------
                  if(!Delivery.compareListDeliveries(nearbyDeliveries,lastNearbyDeliveries)) {
-                     Log.d("Deliveries Compare"," "+nearbyDeliveries.size()+ " " + lastNearbyDeliveries.size());
-                     if(lastNearbyDeliveries.size()<nearbyDeliveries.size()) {
+                     if(numPedidosCercanos<nearbyDeliveries.size()) {
                          NotificationBackground notification = new NotificationBackground("DeOne","Hay un nuevo pedido disponible");
                          sendNotificationFull(notification);
                      }
@@ -291,9 +282,7 @@ public class ForegroundService extends Service implements LocationListener, Goog
                      //-------- Uso intent para avisarle al fragment Domiciliario que puede cargar los deliveries cercanos en las preferences ---------------
                      Intent intent = new Intent(INTENT_ACTION);
                      intent.putExtra("data", true);
-                     if(broadcaster!=null) {
-                         broadcaster.sendBroadcast(intent);
-                     }
+                     broadcaster.sendBroadcast(intent);
                  }
              }
         }
@@ -303,7 +292,7 @@ public class ForegroundService extends Service implements LocationListener, Goog
         if(flagLogin) {
             lastLocation = gson.fromJson(UtilsPreferences.getLastLocation(preferences),Location.class);
             if(lastLocation != null) {
-                List<Delivery> nearbyDeliveries = Delivery.getNearbyDeliveries(deliveriesActivos, lastLocation, 0.5);
+                List<Delivery> nearbyDeliveries = Delivery.getNearbyDeliveries(deliveriesActivos, lastLocation, 1.9);
                 if (nearbyDeliveries.size() > 0) {
                     numPedidosCercanos = nearbyDeliveries.size();
                     UtilsPreferences.saveNearbyDeliveries(preferences, gson.toJson(nearbyDeliveries));
@@ -447,7 +436,6 @@ public class ForegroundService extends Service implements LocationListener, Goog
     @Override
     public void getDeliveriesConditionSuccessful(List<Delivery> deliveries) {
         //-------- Recibo todos los deliveries en estado 0------
-        Log.d(LOG_TAG,"Posicion DOMICILIARIO en SERVER");
         UtilsPreferences.saveDeliveries(preferences,gson.toJson(deliveries));
         deliveriesActivos = deliveries;
         sendNearbyDeliveriesFirstTime();

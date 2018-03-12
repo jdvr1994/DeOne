@@ -1,7 +1,6 @@
 package com.apps.ing3ns.entregas;
 
 import android.app.Application;
-import android.content.Context;
 import android.os.SystemClock;
 import com.squareup.picasso.OkHttpDownloader;
 import com.squareup.picasso.Picasso;
@@ -23,10 +22,5 @@ public class MyApp extends Application {
         Picasso.setSingletonInstance(built);
 
         SystemClock.sleep(500);
-    }
-
-    @Override
-    protected void attachBaseContext(Context base) {
-        super.attachBaseContext(base);
     }
 }

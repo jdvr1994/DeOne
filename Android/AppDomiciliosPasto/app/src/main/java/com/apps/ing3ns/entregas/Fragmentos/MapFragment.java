@@ -66,7 +66,6 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
-import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -126,18 +125,12 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         rootView = inflater.inflate(R.layout.fragment_map, container, false);
         gson = new GsonBuilder().create();
-        Log.d("MAP FRAGMENT","On Create View");
         return rootView;
     }
 
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        Log.d("MAP FRAGMENT","On View Created");
-        FirebaseMessaging.getInstance().subscribeToTopic(Utils.TOPIC_STATE_2);
-        FirebaseMessaging.getInstance().unsubscribeFromTopic(Utils.TOPIC_STATE_0);
-        FirebaseMessaging.getInstance().unsubscribeFromTopic(Utils.TOPIC_STATE_1);
-
         bindUI(view);
         deliveryController = new DeliveryController(this);
         domiciliarioController = new DomiciliarioController(this);
@@ -166,7 +159,8 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
 
         //--------------------------- INICIAMOS Y ACTIVAMOS EL GOOGLE API CLIENT ------------------------
         locationManager = (LocationManager) getActivity().getSystemService(Context.LOCATION_SERVICE);
-        //PermissionsGPS();
+        googleApiClientInit();
+        PermissionsGPS();
 
         btnDeliveryOK.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -194,11 +188,6 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
                 domiciliarioController.updateDomiciliario(domiciliario.get_id(),Utils.deleteDeliveries());
             }
         });
-
-        Log.d("MAP FRAGMENT","On View Created 2");
-
-        //Log.d("MAP", "INICIO FOREGROUND MAP");
-        //gpsServiceAction(Constants.ACTION.START_FOREGROUND_SHARE);
     }
 
     private void setCardViewDelivery(Delivery delivery, Client client) {
@@ -343,14 +332,10 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
     @Override
     public void onLocationChanged(Location location) {
         markerDomiciliario.setPosition(new LatLng(location.getLatitude(),location.getLongitude()));
-
-        // Si esta muy cerca del pedido entonces actualizo el DELIVERY A ESTADO 2
-        // deliveryController.updateDelivery(delivery.get_id(),Utils.getHashMapState(2));
     }
 
     public void MarkerInit(){
-        Location location = gson.fromJson(UtilsPreferences.getLastLocation(preferences), Location.class);
-        LatLng pasto = new LatLng(location.getLatitude(),location.getLongitude());
+        LatLng pasto = new LatLng(1.2080008824889852, -77.2782935335938);
         markerDomiciliario = gMap.addMarker(new MarkerOptions()
                 .position(pasto)
                 .title(getResources().getString(R.string.user_position_title))
@@ -359,7 +344,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         );
 
         markerAddressStart = gMap.addMarker(new MarkerOptions()
-                .position(new LatLng(client.getPosition().getLat(),client.getPosition().getLng()))
+                .position(new LatLng(delivery.getPositionStart().getLat(),delivery.getPositionStart().getLng()))
                 .title(getResources().getString(R.string.client_position_title))
                 .snippet(getResources().getString(R.string.client_position_message))
                 .icon(BitmapDescriptorFactory.fromResource(R.mipmap.ic_marker_destino))
@@ -399,15 +384,13 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
     public void googleApiLocationActive() {
         mLocationRequest = null;
         mLocationRequest = LocationRequest.create();
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
-        mLocationRequest.setInterval(5 * 1000);
-        mLocationRequest.setFastestInterval(5* 1000);
-        mLocationRequest.setSmallestDisplacement(20);
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        mLocationRequest.setInterval(30 * 1000);
+        mLocationRequest.setFastestInterval(30* 1000);
 
         fusedLocationProviderApi = LocationServices.FusedLocationApi;
 
         googleApiClientInit();
-        Log.d("MAP", "GOOGLE API CLIENT CONNECTING....");
         mGoogleApiClient.connect();
     }
 
@@ -443,8 +426,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
 
         if(mGoogleApiClient.isConnected()){
             fusedLocationProviderApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
-            //Log.d("MAP", "INICIO FOREGROUND MAP");
-            //gpsServiceAction(Constants.ACTION.START_FOREGROUND_SHARE);
+            gpsServiceAction(Constants.ACTION.START_FOREGROUND_SHARE);
         }
     }
 
@@ -475,12 +457,9 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
 
     @Override
     public void onRutaLista(List<Route> routes) {
-        if(routes!=null) {
-            if (routes.size() > 0) dibujarRuta(routes.get(0).points);
-            else Toast.makeText(getContext(), "Posicion del cliente DESCONOCIDA", Toast.LENGTH_LONG).show();
-        }else{
-            Toast.makeText(getContext(), "No tienes conexion a internet", Toast.LENGTH_LONG).show();
-        }
+        if(routes.size()>0)dibujarRuta(routes.get(0).points);
+        else Toast.makeText(getContext(), "Posicion del cliente DESCONOCIDA", Toast.LENGTH_LONG).show();
+
         cargando.setVisibility(View.INVISIBLE);
     }
 
@@ -526,6 +505,8 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
             map.put("domiciliario", delivery.getDomiciliario());
             map.put("state", String.valueOf(delivery.getState()));
             deliveryController.updateDelivery(delivery.get_id(), map);
+
+            domiciliarioController.updateDomiciliario(domiciliario.get_id(), Utils.getHashMapState(2));
         }else{
             if(domiciliario.getState()!=2) {
                 Toast.makeText(getActivity(), "Alguien mas acepto el pedido antes", Toast.LENGTH_LONG).show();
@@ -536,14 +517,11 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
 
     @Override
     public void updateDeliverySuccessful(Delivery delivery) {
-        if(delivery.getState()==1){
-            domiciliarioController.updateDomiciliario(domiciliario.get_id(), Utils.getHashMapState(2));
-        }
-
-        if(delivery.getState()==3) {
+        if(delivery.getState()==2) {
             cargando.setVisibility(View.INVISIBLE);
             UtilsPreferences.removeDelivery(preferences);
             UtilsPreferences.removeClient(preferences);
+            gpsServiceAction(Constants.ACTION.STOP_FOREGROUND);
             listener.setOnChangeToDomiciliario(Utils.KEY_MAP_FRAGMENT, R.id.btn_ok);
         }
     }
@@ -562,7 +540,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
     public void updateDomiciliarioSuccessful(Domiciliario domiciliarioUpdated) {
         UtilsPreferences.saveDomiciliario(preferences,gson.toJson(domiciliarioUpdated));
         if(domiciliario.getDeliveries().size()!=domiciliarioUpdated.getDeliveries().size()) {
-            deliveryController.updateDelivery(delivery.get_id(),Utils.getHashMapState(3));
+            deliveryController.updateDelivery(delivery.get_id(),Utils.getHashMapState(2));
         }
     }
 
@@ -608,6 +586,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         cargando.setVisibility(View.VISIBLE);
         UtilsPreferences.removeDelivery(preferences);
         UtilsPreferences.removeClient(preferences);
+        gpsServiceAction(Constants.ACTION.STOP_FOREGROUND);
         cargando.setVisibility(View.INVISIBLE);
         listener.setOnChangeToDomiciliario(Utils.KEY_MAP_FRAGMENT, R.id.btn_ok);
     }

@@ -61,7 +61,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         if (data.size() > 0) {
             String type = data.get(KEY_TYPE);
             String delivery;
-            Log.d("NOTIFICATION","RECIBIDA"+type);
+
             switch (type){
                 case KEY_TYPE_ADD_DELIVERY:
 
