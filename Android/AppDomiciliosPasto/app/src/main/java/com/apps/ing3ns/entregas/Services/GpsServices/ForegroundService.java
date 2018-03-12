@@ -134,10 +134,7 @@ public class ForegroundService extends Service implements LocationListener, Goog
                     domiciliario = gson.fromJson(UtilsPreferences.getDomiciliario(preferences), Domiciliario.class);
                     delivery = gson.fromJson(UtilsPreferences.getDelivery(preferences), Delivery.class);
                     //------------------------ Recuperamos todos los Deliveries en estado 0 -------------------------
-                    if(delivery==null) {
-                        deliveryController.getDeliveriesCondition(Utils.getHashMapState(0));
-                        Log.d(LOG_TAG,"Peticion pedidos");
-                    }
+                    if(delivery==null) deliveryController.getDeliveriesCondition(Utils.getHashMapState(0));
                     //--------------------------- INICIAMOS Y ACTIVAMOS EL GOOGLE API CLIENT ------------------------
                     googleApiLocationActive();
                 } else if (intent.getAction().equals(Constants.ACTION.STOP_FOREGROUND)) {
@@ -451,6 +448,7 @@ public class ForegroundService extends Service implements LocationListener, Goog
     public void getDeliveriesConditionSuccessful(List<Delivery> deliveries) {
         //-------- Recibo todos los deliveries en estado 0------
         Log.d(LOG_TAG,"Posicion DOMICILIARIO en SERVER");
+        UtilsPreferences.saveDeliveries(preferences,gson.toJson(deliveries));
         deliveriesActivos = deliveries;
         sendNearbyDeliveriesFirstTime();
     }

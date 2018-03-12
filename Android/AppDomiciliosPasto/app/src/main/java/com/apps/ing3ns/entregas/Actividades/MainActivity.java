@@ -118,6 +118,7 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
                 UtilsPreferences.removeToken(prefs);
                 UtilsPreferences.removeDomiciliario(prefs);
                 UtilsPreferences.removeDelivery(prefs);
+                UtilsPreferences.removeDeliveries(prefs);
                 UtilsPreferences.removeNearbyDeliveries(prefs);
 
                 setViewLoginFragment();
