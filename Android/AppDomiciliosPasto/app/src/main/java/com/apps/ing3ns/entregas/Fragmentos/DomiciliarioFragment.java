@@ -2,6 +2,7 @@ package com.apps.ing3ns.entregas.Fragmentos;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -9,11 +10,15 @@ import android.content.IntentFilter;
 import android.content.IntentSender;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.location.Location;
 import android.location.LocationManager;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
+import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.LocalBroadcastManager;
@@ -28,22 +33,26 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.apps.ing3ns.entregas.API.API;
 import com.apps.ing3ns.entregas.API.APIControllers.Client.ClientController;
 import com.apps.ing3ns.entregas.API.APIControllers.Client.ClientListener;
 import com.apps.ing3ns.entregas.API.APIControllers.Delivery.DeliveryController;
 import com.apps.ing3ns.entregas.API.APIControllers.Delivery.DeliveryListener;
 import com.apps.ing3ns.entregas.API.APIControllers.Domiciliario.DomiciliarioController;
 import com.apps.ing3ns.entregas.API.APIControllers.Domiciliario.DomiciliarioListener;
-import com.apps.ing3ns.entregas.API.APIServices.DomiciliarioService;
 import com.apps.ing3ns.entregas.Actividades.MainActivity;
 import com.apps.ing3ns.entregas.Adaptadores.AdaptadorPedidos;
+import com.apps.ing3ns.entregas.BuildConfig;
 import com.apps.ing3ns.entregas.Listeners.FragmentsListener;
 import com.apps.ing3ns.entregas.Modelos.Client;
 import com.apps.ing3ns.entregas.Modelos.Delivery;
 import com.apps.ing3ns.entregas.Modelos.Domiciliario;
+import com.apps.ing3ns.entregas.NuevoGPS.LocationStatePreferences;
+import com.apps.ing3ns.entregas.NuevoGPS.LocationResultNotification;
+import com.apps.ing3ns.entregas.NuevoGPS.LocationUpdatesBroadcastReceiver;
+import com.apps.ing3ns.entregas.NuevoGPS.LocationUpdatesIntentService;
 import com.apps.ing3ns.entregas.R;
 import com.apps.ing3ns.entregas.Services.GpsServices.Constants;
+import com.apps.ing3ns.entregas.Services.GpsServices.ForegroundLocationService;
 import com.apps.ing3ns.entregas.Services.GpsServices.ForegroundService;
 import com.apps.ing3ns.entregas.Utils;
 import com.apps.ing3ns.entregas.UtilsPreferences;
@@ -53,31 +62,36 @@ import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.FusedLocationProviderApi;
-import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
-import com.google.android.gms.maps.model.LatLng;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-
-import retrofit2.Call;
 
 /**
  * Created by JuanDa on 14/02/2018.
  */
 
-public class DomiciliarioFragment extends Fragment implements DeliveryListener, ClientListener, DomiciliarioListener, LocationListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
+public class DomiciliarioFragment extends Fragment implements DeliveryListener, ClientListener, DomiciliarioListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, SharedPreferences.OnSharedPreferenceChangeListener {
+
+    //-------------------Nuevo Servicio de Posicionamiento --------------------------
+    private static final String TAG = MainActivity.class.getSimpleName();
+    private static final int REQUEST_PERMISSIONS_REQUEST_CODE = 34;
+
+    private static final long UPDATE_INTERVAL = 10 * 1000;
+    private static final long FASTEST_UPDATE_INTERVAL = UPDATE_INTERVAL / 2;
+    private static final long MAX_WAIT_TIME = UPDATE_INTERVAL * 3;
+    LocationRequest mLocationRequest;
+    GoogleApiClient mGoogleApiClient;
+
+    //-------------------------------------------------------------------------------
+
     public SharedPreferences preferences;
     FragmentsListener listener;
     Gson gson = new GsonBuilder().create();
@@ -89,12 +103,10 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     Domiciliario domiciliario;
 
     //-------------------------------------- GOOGLE API CLIENT ----------------------------
-    LocationRequest mLocationRequest;
-    GoogleApiClient mGoogleApiClient;
+
     FusedLocationProviderApi fusedLocationProviderApi;
     PendingResult<LocationSettingsResult> result;
     final static int REQUEST_LOCATION = 198;
-    private static final int MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 3;
     Status statusGlobal;
     LocationManager locationManager;
 
@@ -172,53 +184,127 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
         domiciliarioController.updateDomiciliario(domiciliario.get_id(),Utils.getHashMapTokenAndState(1));
 
         recyclerViewPedidos.setHasFixedSize(true);
-
         recyclerViewPedidos.setLayoutManager(layoutManager);
         recyclerViewPedidos.setAdapter(adapter);
 
-        gpsServiceAction(Constants.ACTION.START_FOREGROUND);
-        //--------------------------- INICIAMOS Y ACTIVAMOS EL GOOGLE API CLIENT ------------------------
-        locationManager = (LocationManager) getActivity().getSystemService(Context.LOCATION_SERVICE);
-        googleApiClientInit();
-        PermissionsGPS();
+        imgDomiciliario.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                requestLocationUpdates();
+            }
+        });
+
+        puntosDomiciliario.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent startIntent = new Intent(getActivity(), ForegroundLocationService.class);
+                startIntent.setAction(Constants.ACTION.START_FOREGROUND);
+                getActivity().startService(startIntent);
+            }
+        });
+
+        pedidosDomiciliario.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                removeLocationUpdates();
+                Intent startIntent = new Intent(getActivity(), ForegroundLocationService.class);
+                startIntent.setAction(Constants.ACTION.STOP_FOREGROUND);
+                getActivity().startService(startIntent);
+            }
+        });
+
+        // Check if the user revoked runtime permissions.
+        if (!checkPermissions()) {
+            requestPermissions();
+        }
+
+        buildGoogleApiClient();
     }
 
     //######################################################################################
     //------------------------------ PERMISOS DE UBICACION ---------------------------------
     //######################################################################################
-    public void PermissionsGPS() {
-        if (ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // Should we show an explanation?
-            if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(), Manifest.permission.ACCESS_FINE_LOCATION)) {
-                ActivityCompat.requestPermissions(getActivity(),
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                        MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
-            }else {
-                ActivityCompat.requestPermissions(getActivity(),
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                        MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
-            }
-            return;
-        } else {
-            googleApiLocationActive();
-        }
-
+    private boolean checkPermissions() {
+        int permissionState = ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION);
+        return permissionState == PackageManager.PERMISSION_GRANTED;
     }
 
+    private void requestPermissions() {
+        boolean shouldProvideRationale = ActivityCompat.shouldShowRequestPermissionRationale(getActivity(), Manifest.permission.ACCESS_FINE_LOCATION);
+
+        // Provide an additional rationale to the user. This would happen if the user denied the
+        // request previously, but didn't check the "Don't ask again" checkbox.
+        if (shouldProvideRationale) {
+            Log.i(TAG, "Displaying permission rationale to provide additional context.");
+            Snackbar.make(
+                    getView().findViewById(R.id.domiciliario_fragment),
+                    R.string.permission_rationale,
+                    Snackbar.LENGTH_INDEFINITE)
+                    .setAction(R.string.ok, new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            // Request permission
+                            ActivityCompat.requestPermissions(getActivity(), new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_PERMISSIONS_REQUEST_CODE);
+                        }
+                    }).show();
+        } else {
+            Log.i(TAG, "Requesting permission");
+            // Request permission. It's possible this can be auto answered if device policy
+            // sets the permission in a given state or the user denied the permission
+            // previously and checked "Never ask again".
+            ActivityCompat.requestPermissions(getActivity(),
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    REQUEST_PERMISSIONS_REQUEST_CODE);
+        }
+    }
+
+    /**
+     * Callback received when a permissions request has been completed.
+     */
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        //super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        switch (requestCode) {
-            case MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION: {
-                // If request is cancelled, the result arrays are empty.
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    googleApiLocationActive();
-                } else {
-                    ActivityCompat.requestPermissions(getActivity(),
-                            new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                            MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
-                }
-                return;
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        Log.i(TAG, "onRequestPermissionResult");
+        if (requestCode == REQUEST_PERMISSIONS_REQUEST_CODE) {
+            if (grantResults.length <= 0) {
+                // If user interaction was interrupted, the permission request is cancelled and you
+                // receive empty arrays.
+                Log.i(TAG, "User interaction was cancelled.");
+            } else if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission was granted. Kick off the process of building and connecting
+                // GoogleApiClient.
+                buildGoogleApiClient();
+            } else {
+                // Permission denied.
+
+                // Notify the user via a SnackBar that they have rejected a core permission for the
+                // app, which makes the Activity useless. In a real app, core permissions would
+                // typically be best requested during a welcome-screen flow.
+
+                // Additionally, it is important to remember that a permission might have been
+                // rejected without asking the user for permission (device policy or "Never ask
+                // again" prompts). Therefore, a user interface affordance is typically implemented
+                // when permissions are denied. Otherwise, your app could appear unresponsive to
+                // touches or interactions which have required permissions.
+                Snackbar.make(
+                        getView().findViewById(R.id.domiciliario_fragment),
+                        R.string.permission_denied_explanation,
+                        Snackbar.LENGTH_INDEFINITE)
+                        .setAction(R.string.settings, new View.OnClickListener() {
+                            @Override
+                            public void onClick(View view) {
+                                // Build intent that displays the App settings screen.
+                                Intent intent = new Intent();
+                                intent.setAction(
+                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                                Uri uri = Uri.fromParts("package",
+                                        BuildConfig.APPLICATION_ID, null);
+                                intent.setData(uri);
+                                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                startActivity(intent);
+                            }
+                        })
+                        .show();
             }
         }
     }
@@ -226,6 +312,7 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     //######################################################################################
     //--------------------------------- CICLO DE VIDA FRAGMENT ---------------------------------
     //######################################################################################
+
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -236,12 +323,12 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
             case REQUEST_LOCATION:
                 switch (resultCode) {
                     case Activity.RESULT_OK: {
-                        googleApiLocationActive();
+                        buildGoogleApiClient();
                         break;
                     }
                     case Activity.RESULT_CANCELED: {
                         try {
-                            if(!mGoogleApiClient.isConnected()) statusGlobal.startResolutionForResult(getActivity(), REQUEST_LOCATION);
+                            statusGlobal.startResolutionForResult(getActivity(), REQUEST_LOCATION);
                         } catch (IntentSender.SendIntentException e) {
                             e.printStackTrace();
                         }
@@ -257,32 +344,26 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     @Override
     public void onStart() {
         super.onStart();
-        LocalBroadcastManager.getInstance(getContext()).registerReceiver((mMessageReceiver),
-                new IntentFilter(ForegroundService.INTENT_ACTION)
-        );
+        PreferenceManager.getDefaultSharedPreferences(getContext()).registerOnSharedPreferenceChangeListener(this);
+        LocalBroadcastManager.getInstance(getContext()).registerReceiver((mMessageReceiver), new IntentFilter(ForegroundService.INTENT_ACTION));
     }
 
     @Override
     public void onStop() {
         super.onStop();
+        PreferenceManager.getDefaultSharedPreferences(getContext()).unregisterOnSharedPreferenceChangeListener(this);
         LocalBroadcastManager.getInstance(getContext()).unregisterReceiver(mMessageReceiver);
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        googleApiClientInit();
-        if (!mGoogleApiClient.isConnected()) {
-            PermissionsGPS();
-        }
+        Toast.makeText(getContext(), LocationResultNotification.getSavedLocationResult(getActivity()), Toast.LENGTH_SHORT).show();
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        if (mGoogleApiClient.isConnected()) {
-            mGoogleApiClient.disconnect();
-        }
     }
 
     @Override
@@ -309,42 +390,32 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
         super.onDestroy();
     }
 
-    //######################################################################################
-    //--------------------------------- LOCATION CHANGE ---------------------------------
-    //######################################################################################
-    @Override
-    public void onLocationChanged(Location location) {
-
-    }
 
     //######################################################################################
     //--------------------------- GOOGLE API CLIENT LOCATION ------------------------------
     //######################################################################################
-    public void googleApiLocationActive() {
-        mLocationRequest = null;
-        mLocationRequest = LocationRequest.create();
+    private void createLocationRequest() {
+        mLocationRequest = new LocationRequest();
+        mLocationRequest.setInterval(UPDATE_INTERVAL);
+        mLocationRequest.setFastestInterval(FASTEST_UPDATE_INTERVAL);
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        mLocationRequest.setInterval(30 * 1000);
-        mLocationRequest.setFastestInterval(30* 1000);
-
-        fusedLocationProviderApi = LocationServices.FusedLocationApi;
-
-        googleApiClientInit();
-        mGoogleApiClient.connect();
+        mLocationRequest.setMaxWaitTime(MAX_WAIT_TIME);
     }
 
-    public void googleApiClientInit(){
+    private void buildGoogleApiClient() {
+        if (mGoogleApiClient != null) {
+            return;
+        }
+        createLocationRequest();
+
         mGoogleApiClient = new GoogleApiClient.Builder(getContext())
-                .addApi(LocationServices.API)
                 .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this).build();
-    }
+                .addOnConnectionFailedListener(this)
+                .enableAutoManage(getActivity(), this)
+                .addApi(LocationServices.API)
+                .build();
 
-    //-------------------------- START AND STOP SERVICE FOREGROUND -------------------------
-    public void gpsServiceAction(String action){
-        Intent startIntent = new Intent(getActivity(), ForegroundService.class);
-        startIntent.setAction(action);
-        getActivity().startService(startIntent);
+        mGoogleApiClient.connect();
     }
 
     @Override
@@ -358,7 +429,7 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
             public void onResult(LocationSettingsResult result) {
                 final Status status = result.getStatus();
                 statusGlobal = status;
-                if (status.getStatusCode()== LocationSettingsStatusCodes.RESOLUTION_REQUIRED) {
+                if (status.getStatusCode()==LocationSettingsStatusCodes.RESOLUTION_REQUIRED) {
                     try {
                         status.startResolutionForResult(getActivity(), REQUEST_LOCATION);
                     } catch (IntentSender.SendIntentException e) {}
@@ -370,20 +441,68 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
             return;
         }
 
-        if(mGoogleApiClient.isConnected()){
-            fusedLocationProviderApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
-            gpsServiceAction(Constants.ACTION.START_FOREGROUND_SHARE);
+        if (!LocationStatePreferences.getRequesting(getActivity())) {
+            requestLocationUpdates();
         }
     }
 
     @Override
     public void onConnectionSuspended(int i) {
+        final String text = "Connection suspended";
+        Log.w(TAG, text + ": Error code: " + i);
+        showSnackbar("Connection suspended");
     }
 
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        final String text = "Exception while connecting to Google Play services";
+        Log.w(TAG, text + ": " + connectionResult.getErrorMessage());
+        showSnackbar(text);
     }
 
+    private void showSnackbar(final String text) {
+        View container = getView().findViewById(R.id.domiciliario_fragment);
+        if (container != null) {
+            Snackbar.make(container, text, Snackbar.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s) {
+        if (s.equals(LocationResultNotification.KEY_LOCATION_UPDATES_RESULT)) {
+            Toast.makeText(getContext(), LocationResultNotification.getSavedLocationResult(getContext()), Toast.LENGTH_SHORT).show();
+        } else if (s.equals(LocationStatePreferences.KEY_LOCATION_UPDATES_REQUESTED)) {
+            updateButtonsState(LocationStatePreferences.getRequesting(getContext()));
+        }
+    }
+
+
+    private PendingIntent getPendingIntent() {
+        Intent intent = new Intent(getActivity(), LocationUpdatesBroadcastReceiver.class);
+        intent.setAction(LocationUpdatesBroadcastReceiver.ACTION_PROCESS_UPDATES);
+        return PendingIntent.getBroadcast(getActivity(), 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+    }
+
+    public void requestLocationUpdates() {
+        try {
+            Log.i(TAG, "Starting location updates");
+            LocationStatePreferences.setRequesting(getContext(), true);
+            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, getPendingIntent());
+        } catch (SecurityException e) {
+            LocationStatePreferences.setRequesting(getContext(), false);
+            e.printStackTrace();
+        }
+    }
+
+    public void removeLocationUpdates() {
+        Log.i(TAG, "Removing location updates");
+        LocationStatePreferences.setRequesting(getContext(), false);
+        LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, getPendingIntent());
+    }
+
+    private void updateButtonsState(boolean requestingLocationUpdates) {
+
+    }
     //######################################################################################
     //--------------------------------- SET RECYCLER VIEW ---------------------------------
     //######################################################################################
@@ -422,6 +541,7 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     @Override
     public void getClientSuccessful(Client client) {
         UtilsPreferences.saveClient(preferences,gson.toJson(client));
+        removeLocationUpdates();
         listener.setOnChangeToMap(Utils.KEY_DOMICILIARIO_FRAGMENT,R.id.cardview_dom);
     }
 

@@ -342,7 +342,7 @@ public class ForegroundService extends Service implements LocationListener, Goog
                 .setContentTitle(title)
                 .setStyle(new Notification.BigTextStyle().bigText(notification.getBody()))
                 .setContentText(body)
-                .setVibrate(new long[] {100, 250, 100, 500})
+                //.setVibrate(new long[] {100, 250, 100, 500})
                 .setAutoCancel(true);
 
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);

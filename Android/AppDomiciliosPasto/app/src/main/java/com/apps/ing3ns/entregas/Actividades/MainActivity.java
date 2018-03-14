@@ -92,6 +92,15 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
         super.onStop();
     }
 
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data){
+
+        Fragment frg = getSupportFragmentManager().findFragmentByTag(Utils.KEY_DOMICILIARIO_FRAGMENT);
+        if (frg != null) {
+            frg.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
     //----------------------------PRESIONAR BOTON ATRAS --------------------------------
     @Override
     public void onBackPressed() {

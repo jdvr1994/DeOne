@@ -59,6 +59,17 @@
             </intent-filter>
         </service>
 
+
+        <service android:name=".NuevoGPS.LocationUpdatesIntentService" android:exported="false"/>
+
+        <receiver android:name=".NuevoGPS.LocationUpdatesBroadcastReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name=".NuevoGPS.LocationUpdatesBroadcastReceiver.ACTION_PROCESS_UPDATES" />
+            </intent-filter>
+        </receiver>
+
+
         <!--
              The API key for Google Maps-based APIs is defined as a string resource.
              (See the file "res/values/google_maps_api.xml").
@@ -72,6 +83,10 @@
             android:value="@string/google_maps_key" />
 
         <service android:name=".Services.GpsServices.ForegroundService">
+
+        </service>
+
+        <service android:name=".Services.GpsServices.ForegroundLocationService">
 
         </service>
 

@@ -4,6 +4,7 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -48,10 +49,15 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private LocalBroadcastManager broadcaster;
     Intent intent;
 
+    Intent intentForSer;
+
     @Override
     public void onCreate() {
         broadcaster = LocalBroadcastManager.getInstance(this);
         intent = new Intent(INTENT_ACTION);
+
+        //intent = new Intent(this, LocationUpdatesBroadcastReceiver.class);
+        //intent.setAction(LocationUpdatesBroadcastReceiver.ACTION_PROCESS_UPDATES);
     }
 
     @Override
