@@ -53,8 +53,8 @@ public class MyFirebaseInstanceIDService extends FirebaseInstanceIdService imple
     }
 
     @Override
-    public void updateDomiciliarioSuccessful(Domiciliario domiciliario) {
-        UtilsPreferences.saveDomiciliario(preferences,gson.toJson(domiciliario));
+    public void updateDomiciliarioSuccessful(Domiciliario domiciliarioUpdated) {
+        UtilsPreferences.saveDomiciliario(preferences,gson.toJson(domiciliarioUpdated));
         Toast.makeText(this, "Token de notificationes actualizado correctamente", Toast.LENGTH_SHORT).show();
     }
 

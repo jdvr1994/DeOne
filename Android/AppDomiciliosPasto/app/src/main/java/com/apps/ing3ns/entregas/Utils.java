@@ -2,6 +2,7 @@ package com.apps.ing3ns.entregas;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.location.Location;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.widget.ImageView;
@@ -18,7 +19,9 @@ import com.squareup.picasso.NetworkPolicy;
 import com.squareup.picasso.Picasso;
 
 import java.io.IOException;
+import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
@@ -88,6 +91,20 @@ public class Utils {
         return map;
     }
 
+
+    /**
+     * Returns the {@code location} object as a human readable string.
+     * @param location  The {@link Location}.
+     */
+    public static String getLocationText(Location location) {
+        return location == null ? "Unknown location" :
+                "(" + location.getLatitude() + ", " + location.getLongitude() + ")";
+    }
+
+    public static String getLocationTitle(Context context) {
+        return context.getString(R.string.location_updated,
+                DateFormat.getDateTimeInstance().format(new Date()));
+    }
     //------------------------------------------------------------------------------------
     //------------------------------IMAGE PICASSO-----------------------------------------
     //------------------------------------------------------------------------------------

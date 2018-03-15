@@ -72,7 +72,7 @@ public class IntroActivity extends MaterialIntroActivity {
     @Override
     public void onFinish() {
         super.onFinish();
-        UtilsPreferences.saveFirstTime(prefs);
+        UtilsPreferences.setFirstTime(prefs);
         Intent intentMain = new Intent(IntroActivity.this, MainActivity.class);
         intentMain.putExtra("Fragment", Utils.KEY_LOGIN_FRAGMENT);
         startActivity(intentMain);

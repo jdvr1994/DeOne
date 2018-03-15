@@ -119,9 +119,7 @@ public class ForegroundService extends Service implements LocationListener, Goog
         domiciliarioController = new DomiciliarioController(this);
         deliveryController = new DeliveryController(this);
 
-        LocalBroadcastManager.getInstance(this).registerReceiver((mMessageReceiver),
-                new IntentFilter(MyFirebaseMessagingService.INTENT_ACTION)
-        );
+        LocalBroadcastManager.getInstance(this).registerReceiver((mMessageReceiver), new IntentFilter(MyFirebaseMessagingService.INTENT_ACTION));
     }
 
     @Override
@@ -409,8 +407,8 @@ public class ForegroundService extends Service implements LocationListener, Goog
     }
 
     @Override
-    public void updateDomiciliarioSuccessful(Domiciliario domiciliario) {
-        UtilsPreferences.saveDomiciliario(preferences,gson.toJson(domiciliario));
+    public void updateDomiciliarioSuccessful(Domiciliario domiciliarioUpdated) {
+        UtilsPreferences.saveDomiciliario(preferences,gson.toJson(domiciliarioUpdated));
     }
 
     @Override
@@ -436,7 +434,6 @@ public class ForegroundService extends Service implements LocationListener, Goog
     @Override
     public void getDeliveriesConditionSuccessful(List<Delivery> deliveries) {
         //-------- Recibo todos los deliveries en estado 0------
-        UtilsPreferences.saveDeliveries(preferences,gson.toJson(deliveries));
         deliveriesActivos = deliveries;
         sendNearbyDeliveriesFirstTime();
     }

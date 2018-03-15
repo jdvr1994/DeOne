@@ -40,6 +40,7 @@ import com.apps.ing3ns.entregas.Menu.MenuListener;
 import com.apps.ing3ns.entregas.Modelos.Domiciliario;
 import com.apps.ing3ns.entregas.R;
 import com.apps.ing3ns.entregas.Services.GpsServices.Constants;
+import com.apps.ing3ns.entregas.Services.GpsServices.ForegroundLocationService;
 import com.apps.ing3ns.entregas.Services.GpsServices.ForegroundService;
 import com.apps.ing3ns.entregas.Services.NotificationServices.MyFirebaseMessagingService;
 import com.apps.ing3ns.entregas.Utils;
@@ -143,11 +144,14 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
                 UtilsPreferences.removeToken(prefs);
                 UtilsPreferences.removeDomiciliario(prefs);
                 UtilsPreferences.removeDelivery(prefs);
-                UtilsPreferences.removeDeliveries(prefs);
                 UtilsPreferences.removeNearbyDeliveries(prefs);
 
                 setViewLoginFragment();
-                gpsServiceAction(Constants.ACTION.STOP_FOREGROUND);
+
+                // Terminamos el servicio para dejar de usar
+                Intent intent = new Intent(this, ForegroundLocationService.class);
+                intent.putExtra(ForegroundLocationService.EXTRA_STARTED_FROM_NOTIFICATION, true);
+                startService(intent);
                 break;
         }
     }
@@ -251,8 +255,8 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
     }
 
     @Override
-    public void updateDomiciliarioSuccessful(Domiciliario domiciliario) {
-        UtilsPreferences.saveDomiciliario(prefs,gson.toJson(domiciliario));
+    public void updateDomiciliarioSuccessful(Domiciliario domiciliarioUpdated) {
+        UtilsPreferences.saveDomiciliario(prefs,gson.toJson(domiciliarioUpdated));
     }
 
     @Override
@@ -295,13 +299,6 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
     public void setOnChangeToMap(String tagPrevFragment, int idObjectUI) {
         if(domiciliarioFragment.isVisible()) performTransition(domiciliarioFragment,Utils.KEY_MAP_FRAGMENT,mapFragment,idObjectUI);
         menuController.setMenuLateralLogOut();
-    }
-
-    //-------------------------- START AND STOP SERVICE FOREGROUND -------------------------
-    public void gpsServiceAction(String action){
-        Intent startIntent = new Intent(this, ForegroundService.class);
-        startIntent.setAction(action);
-        startService(startIntent);
     }
 }
 

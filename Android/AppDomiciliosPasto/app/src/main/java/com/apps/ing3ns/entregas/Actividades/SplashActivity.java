@@ -1,28 +1,19 @@
 package com.apps.ing3ns.entregas.Actividades;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.support.v4.app.ActivityOptionsCompat;
-import android.support.v4.util.Pair;
 import android.support.v7.app.AppCompatActivity;
-import android.view.View;
 import android.widget.Toast;
 
 import com.apps.ing3ns.entregas.API.APIControllers.Domiciliario.DomiciliarioController;
 import com.apps.ing3ns.entregas.API.APIControllers.Domiciliario.DomiciliarioListener;
 import com.apps.ing3ns.entregas.Modelos.Domiciliario;
-import com.apps.ing3ns.entregas.R;
 import com.apps.ing3ns.entregas.Utils;
 import com.apps.ing3ns.entregas.UtilsPreferences;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-
-import java.util.HashMap;
-
-import okhttp3.internal.Util;
 
 public class SplashActivity extends AppCompatActivity implements DomiciliarioListener{
 
@@ -48,7 +39,7 @@ public class SplashActivity extends AppCompatActivity implements DomiciliarioLis
         token = UtilsPreferences.getToken(prefs);
         domiciliario = UtilsPreferences.getDomiciliario(prefs);
         delivery = UtilsPreferences.getDelivery(prefs);
-        permission = UtilsPreferences.getFirstTime(prefs);
+        permission = UtilsPreferences.isFirstTime(prefs);
 
         if(permission) {
             if (token != null && domiciliario != null) {
@@ -85,7 +76,7 @@ public class SplashActivity extends AppCompatActivity implements DomiciliarioLis
     }
 
     @Override
-    public void updateDomiciliarioSuccessful(Domiciliario domiciliario) {
+    public void updateDomiciliarioSuccessful(Domiciliario domiciliarioUpdated) {
 
     }
 

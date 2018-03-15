@@ -165,4 +165,13 @@ public class Delivery {
         }
         return equal;
     }
+
+    public static boolean compareListDeliveries(List<Delivery> deliveries1, String lastDeliveryId, int numLastDeliveries){
+        boolean equal = true;
+
+        if(deliveries1.size()!=numLastDeliveries) equal = false;
+        else if(!deliveries1.get(deliveries1.size()-1).get_id().equals(lastDeliveryId)) equal = false;
+
+        return equal;
+    }
 }

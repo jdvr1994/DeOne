@@ -3,28 +3,15 @@ package com.apps.ing3ns.entregas.Services.NotificationServices;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.app.Service;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.net.Uri;
 import android.os.Build;
-import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.LocalBroadcastManager;
-import android.support.v4.content.res.ResourcesCompat;
-import android.util.Log;
-import android.widget.RemoteViews;
-import android.widget.Toast;
-
 import com.apps.ing3ns.entregas.Actividades.MainActivity;
-import com.apps.ing3ns.entregas.Actividades.SplashActivity;
 import com.apps.ing3ns.entregas.R;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
-
-import java.util.List;
 import java.util.Map;
 
 /**

@@ -2,18 +2,19 @@ package com.apps.ing3ns.entregas.Fragmentos;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.location.LocationManager;
+import android.location.Location;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
@@ -46,14 +47,8 @@ import com.apps.ing3ns.entregas.Listeners.FragmentsListener;
 import com.apps.ing3ns.entregas.Modelos.Client;
 import com.apps.ing3ns.entregas.Modelos.Delivery;
 import com.apps.ing3ns.entregas.Modelos.Domiciliario;
-import com.apps.ing3ns.entregas.NuevoGPS.LocationStatePreferences;
-import com.apps.ing3ns.entregas.NuevoGPS.LocationResultNotification;
-import com.apps.ing3ns.entregas.NuevoGPS.LocationUpdatesBroadcastReceiver;
-import com.apps.ing3ns.entregas.NuevoGPS.LocationUpdatesIntentService;
 import com.apps.ing3ns.entregas.R;
-import com.apps.ing3ns.entregas.Services.GpsServices.Constants;
 import com.apps.ing3ns.entregas.Services.GpsServices.ForegroundLocationService;
-import com.apps.ing3ns.entregas.Services.GpsServices.ForegroundService;
 import com.apps.ing3ns.entregas.Utils;
 import com.apps.ing3ns.entregas.UtilsPreferences;
 import com.google.android.gms.common.ConnectionResult;
@@ -61,7 +56,6 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
-import com.google.android.gms.location.FusedLocationProviderApi;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
@@ -69,7 +63,6 @@ import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -80,93 +73,113 @@ import java.util.List;
 
 public class DomiciliarioFragment extends Fragment implements DeliveryListener, ClientListener, DomiciliarioListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, SharedPreferences.OnSharedPreferenceChangeListener {
 
-    //-------------------Nuevo Servicio de Posicionamiento --------------------------
+    //######################################################################################
+    //---------------- NUEVO SERVICIO DE UBICACION BACKGROUND/FOREGROUND -------------------
+    //######################################################################################
+    /**
+     * Variables usadas para peticion de Permisos de Ubicacion.
+     */
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final int REQUEST_PERMISSIONS_REQUEST_CODE = 34;
 
-    private static final long UPDATE_INTERVAL = 10 * 1000;
-    private static final long FASTEST_UPDATE_INTERVAL = UPDATE_INTERVAL / 2;
-    private static final long MAX_WAIT_TIME = UPDATE_INTERVAL * 3;
-    LocationRequest mLocationRequest;
-    GoogleApiClient mGoogleApiClient;
+    /**
+     * Variables usadas para activar el GPS del dispositivo por medio de @GoogleApiClient.
+     */
+    final static int REQUEST_LOCATION = 198;
+    private GoogleApiClient mGoogleApiClient;
+    private PendingResult<LocationSettingsResult> result;
+    private Status statusGlobal;
 
-    //-------------------------------------------------------------------------------
+    /**
+     * Variables usadas para administrar la dinamica de Vinculacion y Conexion del Servicio.
+     */
+    private MyReceiver myReceiver;
+    private ForegroundLocationService mService = null;
+    // Seguir el Estado de vinculacion con el Servicio.
+    private boolean mBound = false;
 
-    public SharedPreferences preferences;
-    FragmentsListener listener;
-    Gson gson = new GsonBuilder().create();
+    // Monitoreamos el estado de conexion del Servicio
+    private final ServiceConnection mServiceConnection = new ServiceConnection() {
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            ForegroundLocationService.LocalBinder binder = (ForegroundLocationService.LocalBinder) service;
+            mService = binder.getService();
+            mBound = true;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            mService = null;
+            mBound = false;
+        }
+    };
+
+    //######################################################################################
+    //------------------------------ VARIABLES DE PROCESO ----------------------------------
+    //######################################################################################
+    /**
+     * Objetos y Controladores de eventos API REST.
+     */
+    private DeliveryController deliveryController;
+    private ClientController clientController;
+    private DomiciliarioController domiciliarioController;
+    private Domiciliario domiciliario;
+
+    /**
+     * GSON y Variables para RecyclerView.
+     */
+    private Gson gson = new GsonBuilder().create();
     private AdaptadorPedidos adapter;
     private LinearLayoutManager layoutManager;
-    DeliveryController deliveryController;
-    ClientController clientController;
-    DomiciliarioController domiciliarioController;
-    Domiciliario domiciliario;
 
-    //-------------------------------------- GOOGLE API CLIENT ----------------------------
+    /**
+     * Otras varibales de proceso.
+     */
+    private SharedPreferences preferences;
+    private FragmentsListener listener;
 
-    FusedLocationProviderApi fusedLocationProviderApi;
-    PendingResult<LocationSettingsResult> result;
-    final static int REQUEST_LOCATION = 198;
-    Status statusGlobal;
-    LocationManager locationManager;
-
-    //---------------------Objetos UI ---------------------
+    //######################################################################################
+    //---------------------------- DEFINICION DE OBJETOS UI --------------------------------
+    //######################################################################################
     ImageView imgDomiciliario;
     TextView nameDomiciliario;
     TextView puntosDomiciliario;
     TextView pedidosDomiciliario;
     RecyclerView recyclerViewPedidos;
     RelativeLayout cargando;
-    List<Delivery> deliveriesGlobal = new ArrayList<>();
+
+    //######################################################################################
+    //------------------------------ ON CREATE Y SIMILARES----------------------------------
+    //######################################################################################
 
     public DomiciliarioFragment() {
-        // Required empty public constructor
+
     }
 
-    private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            Toast.makeText(getContext(), "Pedidos actualizados", Toast.LENGTH_SHORT).show();
-            String deliveriesJson = UtilsPreferences.getNearbyDeliveries(preferences);
-            List<Delivery> deliveries = gson.fromJson(deliveriesJson,new TypeToken<List<Delivery>>(){}.getType());
-            setRecyclerViewPedidos(deliveries);
-        }
-    };
-
-    public void bindUI(View view){
-        imgDomiciliario = view.findViewById(R.id.imagen_dom);
-        nameDomiciliario = view.findViewById(R.id.nombre_dom);
-        puntosDomiciliario = view.findViewById(R.id.puntos_dom);
-        pedidosDomiciliario = view.findViewById(R.id.total_dom);
-        recyclerViewPedidos = view.findViewById(R.id.recyclerViewPedidos);
-        cargando = view.findViewById(R.id.layout_pb_delivery);
-    }
-
-    public void setCardViewDomiciliario(Domiciliario domiciliario){
-        Utils.imagePicassoRounded(getContext(),domiciliario.getAvatar(),imgDomiciliario);
-        nameDomiciliario.setText(domiciliario.getName());
-        puntosDomiciliario.setText(String.valueOf(domiciliario.getCoins()));
-        pedidosDomiciliario.setText(String.valueOf(domiciliario.getDeliveries().size()));
-    }
-
-    @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_domiciliario, container, false);
+        myReceiver = new MyReceiver();
+        // Inicializo los controladores de eventos API REST
+        deliveryController = new DeliveryController(this);
+        clientController = new ClientController(this);
+        domiciliarioController = new DomiciliarioController(this);
         bindUI(view);
         return view;
     }
 
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
+        // Rescato informacion del domiciliario atravez de las SharedPreferences y la VISUALIZO.
         preferences = getActivity().getSharedPreferences("Preferences", Context.MODE_PRIVATE);
         domiciliario = gson.fromJson(UtilsPreferences.getDomiciliario(preferences),Domiciliario.class);
         setCardViewDomiciliario(domiciliario);
 
-        deliveryController = new DeliveryController(this);
-        clientController = new ClientController(this);
-        domiciliarioController = new DomiciliarioController(this);
+        // Actualizo el estado del DOMICILIARIO.
+        domiciliarioController.updateDomiciliario(domiciliario.get_id(),Utils.getHashMapTokenAndState(1));
 
+        // Configuro e inicializo lo necesario para la visualizacion del RecyclerView
         layoutManager = new LinearLayoutManager(getContext());
         layoutManager.setReverseLayout(true);
         layoutManager.setStackFromEnd(true);
@@ -181,44 +194,122 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
             }
         });
 
-        domiciliarioController.updateDomiciliario(domiciliario.get_id(),Utils.getHashMapTokenAndState(1));
-
         recyclerViewPedidos.setHasFixedSize(true);
         recyclerViewPedidos.setLayoutManager(layoutManager);
         recyclerViewPedidos.setAdapter(adapter);
 
+        // Eventos enlazados a los Elementos UI
         imgDomiciliario.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                requestLocationUpdates();
+                if(!UtilsPreferences.getStateLocationUpdates(getActivity())) mService.requestLocationUpdates();
             }
         });
 
         puntosDomiciliario.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent startIntent = new Intent(getActivity(), ForegroundLocationService.class);
-                startIntent.setAction(Constants.ACTION.START_FOREGROUND);
-                getActivity().startService(startIntent);
+                if(UtilsPreferences.getStateLocationUpdates(getActivity()))mService.removeLocationUpdates();
             }
         });
 
         pedidosDomiciliario.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                removeLocationUpdates();
-                Intent startIntent = new Intent(getActivity(), ForegroundLocationService.class);
-                startIntent.setAction(Constants.ACTION.STOP_FOREGROUND);
-                getActivity().startService(startIntent);
+
             }
         });
 
-        // Check if the user revoked runtime permissions.
+        // Comienzo la rutina para peticion de PERMISOS y Acceso a la UBICACION
         if (!checkPermissions()) {
             requestPermissions();
         }
 
         buildGoogleApiClient();
+    }
+
+    //######################################################################################
+    //------------------------------ CICLO DE VIDA FRAGMENT --------------------------------
+    //######################################################################################
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        PreferenceManager.getDefaultSharedPreferences(getActivity()).registerOnSharedPreferenceChangeListener(this);
+
+        // Se vincula con el Servicio. Si el servicio se encuentra en modo FOREGROUND,
+        // esta señal indica al Servicio que el Fragment esta en PrimerPlano y que
+        // el Servicio debe pasar a trabajar BACKGROUND
+        getActivity().bindService(new Intent(getActivity(), ForegroundLocationService.class), mServiceConnection, Context.BIND_AUTO_CREATE);
+    }
+
+    @Override
+    public void onStop() {
+        if (mBound) {
+            // Se vincula con el Servicio. Si el servicio se encuentra en modo BACKGROUND,
+            // esta señal indica al Servicio que el Fragment deja de estar en Primer Plano y que
+            // el Servicio debe pasar a trabajar FOREGROUND
+            getActivity().unbindService(mServiceConnection);
+            mBound = false;
+        }
+        PreferenceManager.getDefaultSharedPreferences(getActivity()).unregisterOnSharedPreferenceChangeListener(this);
+        super.onStop();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        LocalBroadcastManager.getInstance(getActivity()).registerReceiver(myReceiver, new IntentFilter(ForegroundLocationService.ACTION_BROADCAST));
+    }
+
+    @Override
+    public void onPause() {
+        LocalBroadcastManager.getInstance(getActivity()).unregisterReceiver(myReceiver);
+        super.onPause();
+    }
+
+    @Override
+    public void onAttach(Context context) {
+        super.onAttach(context);
+        try {
+            listener = (FragmentsListener) getActivity();
+        } catch (ClassCastException e) {
+            throw new ClassCastException(getActivity().toString() + " must implement OnItemClickedListener");
+        }
+    }
+
+    @Override
+    public void onDetach() {
+        super.onDetach();
+        listener = null;
+        if (mGoogleApiClient.isConnected()) {
+            mGoogleApiClient.disconnect();
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+    }
+
+
+    //######################################################################################
+    //--------------------------------- CONFIGURAR UI --------------------------------------
+    //######################################################################################
+    public void bindUI(View view){
+        imgDomiciliario = view.findViewById(R.id.imagen_dom);
+        nameDomiciliario = view.findViewById(R.id.nombre_dom);
+        puntosDomiciliario = view.findViewById(R.id.puntos_dom);
+        pedidosDomiciliario = view.findViewById(R.id.total_dom);
+        recyclerViewPedidos = view.findViewById(R.id.recyclerViewPedidos);
+        cargando = view.findViewById(R.id.layout_pb_delivery);
+    }
+
+    public void setCardViewDomiciliario(Domiciliario domiciliario){
+        Utils.imagePicassoRounded(getContext(),domiciliario.getAvatar(),imgDomiciliario);
+        nameDomiciliario.setText(domiciliario.getName());
+        puntosDomiciliario.setText(String.valueOf(domiciliario.getCoins()));
+        pedidosDomiciliario.setText(String.valueOf(domiciliario.getDeliveries().size()));
     }
 
     //######################################################################################
@@ -259,7 +350,7 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     }
 
     /**
-     * Callback received when a permissions request has been completed.
+     * Callback recibida cuando una peticion de permisos ha sido completada.
      */
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
@@ -310,9 +401,78 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     }
 
     //######################################################################################
-    //--------------------------------- CICLO DE VIDA FRAGMENT ---------------------------------
+    //--------------------------- GOOGLE API CLIENT LOCATION ------------------------------
     //######################################################################################
+    private void buildGoogleApiClient() {
+        if (mGoogleApiClient != null) {
+            return;
+        }
 
+        mGoogleApiClient = new GoogleApiClient.Builder(getContext())
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .enableAutoManage(getActivity(), this)
+                .addApi(LocationServices.API)
+                .build();
+
+        mGoogleApiClient.connect();
+    }
+
+    /**
+     * Callback recibido cuando el resultado de una conexion es completada (@GoogleApiClient).
+     */
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(new LocationRequest());
+        builder.setAlwaysShow(true);
+
+        result = LocationServices.SettingsApi.checkLocationSettings(mGoogleApiClient, builder.build());
+        result.setResultCallback(new ResultCallback<LocationSettingsResult>() {
+            @Override
+            public void onResult(LocationSettingsResult result) {
+                final Status status = result.getStatus();
+                statusGlobal = status;
+                if (status.getStatusCode()==LocationSettingsStatusCodes.RESOLUTION_REQUIRED) {
+                    try {
+                        status.startResolutionForResult(getActivity(), REQUEST_LOCATION);
+                    } catch (IntentSender.SendIntentException e) {}
+                }
+            }
+        });
+
+        if (ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+
+        if(!UtilsPreferences.getStateLocationUpdates(getActivity())) {
+            mService.requestLocationUpdates();
+        }
+        mService.setModeSearch();
+    }
+
+    /**
+     * Callback recibido cuando una conexion fue suspendida (@GoogleApiClient).
+     */
+    @Override
+    public void onConnectionSuspended(int i) {
+        final String text = "Connection suspended";
+        Log.w(TAG, text + ": Error code: " + i);
+        showSnackbar("Connection suspended");
+    }
+
+    /**
+     * Callback recibido cuando una conexion fue fallida  (@GoogleApiClient).
+     */
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        final String text = "Exception while connecting to Google Play services";
+        Log.w(TAG, text + ": " + connectionResult.getErrorMessage());
+        showSnackbar(text);
+    }
+
+    /**
+     * Callback recibido cuando el resultado de una Resolucion es completada (@GoogleApiClient Connection).
+     */
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -341,124 +501,6 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
         }
     }
 
-    @Override
-    public void onStart() {
-        super.onStart();
-        PreferenceManager.getDefaultSharedPreferences(getContext()).registerOnSharedPreferenceChangeListener(this);
-        LocalBroadcastManager.getInstance(getContext()).registerReceiver((mMessageReceiver), new IntentFilter(ForegroundService.INTENT_ACTION));
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        PreferenceManager.getDefaultSharedPreferences(getContext()).unregisterOnSharedPreferenceChangeListener(this);
-        LocalBroadcastManager.getInstance(getContext()).unregisterReceiver(mMessageReceiver);
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        Toast.makeText(getContext(), LocationResultNotification.getSavedLocationResult(getActivity()), Toast.LENGTH_SHORT).show();
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-    }
-
-    @Override
-    public void onAttach(Context context) {
-        super.onAttach(context);
-        try {
-            listener = (FragmentsListener) getActivity();
-        } catch (ClassCastException e) {
-            throw new ClassCastException(getActivity().toString() + " must implement OnItemClickedListener");
-        }
-    }
-
-    @Override
-    public void onDetach() {
-        super.onDetach();
-        listener = null;
-        if (mGoogleApiClient.isConnected()) {
-            mGoogleApiClient.disconnect();
-        }
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-    }
-
-
-    //######################################################################################
-    //--------------------------- GOOGLE API CLIENT LOCATION ------------------------------
-    //######################################################################################
-    private void createLocationRequest() {
-        mLocationRequest = new LocationRequest();
-        mLocationRequest.setInterval(UPDATE_INTERVAL);
-        mLocationRequest.setFastestInterval(FASTEST_UPDATE_INTERVAL);
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        mLocationRequest.setMaxWaitTime(MAX_WAIT_TIME);
-    }
-
-    private void buildGoogleApiClient() {
-        if (mGoogleApiClient != null) {
-            return;
-        }
-        createLocationRequest();
-
-        mGoogleApiClient = new GoogleApiClient.Builder(getContext())
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .enableAutoManage(getActivity(), this)
-                .addApi(LocationServices.API)
-                .build();
-
-        mGoogleApiClient.connect();
-    }
-
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
-        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(mLocationRequest);
-        builder.setAlwaysShow(true);
-
-        result = LocationServices.SettingsApi.checkLocationSettings(mGoogleApiClient, builder.build());
-        result.setResultCallback(new ResultCallback<LocationSettingsResult>() {
-            @Override
-            public void onResult(LocationSettingsResult result) {
-                final Status status = result.getStatus();
-                statusGlobal = status;
-                if (status.getStatusCode()==LocationSettingsStatusCodes.RESOLUTION_REQUIRED) {
-                    try {
-                        status.startResolutionForResult(getActivity(), REQUEST_LOCATION);
-                    } catch (IntentSender.SendIntentException e) {}
-                }
-            }
-        });
-
-        if (ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return;
-        }
-
-        if (!LocationStatePreferences.getRequesting(getActivity())) {
-            requestLocationUpdates();
-        }
-    }
-
-    @Override
-    public void onConnectionSuspended(int i) {
-        final String text = "Connection suspended";
-        Log.w(TAG, text + ": Error code: " + i);
-        showSnackbar("Connection suspended");
-    }
-
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-        final String text = "Exception while connecting to Google Play services";
-        Log.w(TAG, text + ": " + connectionResult.getErrorMessage());
-        showSnackbar(text);
-    }
 
     private void showSnackbar(final String text) {
         View container = getView().findViewById(R.id.domiciliario_fragment);
@@ -467,42 +509,33 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
         }
     }
 
+
+    /**
+     * Receiver for broadcasts sent by {@link ForegroundLocationService}.
+     */
+    private class MyReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Location location = intent.getParcelableExtra(ForegroundLocationService.EXTRA_LOCATION);
+            if (location != null) {
+                Toast.makeText(getActivity(), Utils.getLocationText(location), Toast.LENGTH_SHORT).show();
+            }
+
+            String nearbyDeliveriesJson = intent.getStringExtra(ForegroundLocationService.EXTRA_NEARBY_DELIVERIES);
+            if(nearbyDeliveriesJson!=null){
+                Toast.makeText(getActivity(), "Pedidos Cercanos Recibidos", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s) {
-        if (s.equals(LocationResultNotification.KEY_LOCATION_UPDATES_RESULT)) {
-            Toast.makeText(getContext(), LocationResultNotification.getSavedLocationResult(getContext()), Toast.LENGTH_SHORT).show();
-        } else if (s.equals(LocationStatePreferences.KEY_LOCATION_UPDATES_REQUESTED)) {
-            updateButtonsState(LocationStatePreferences.getRequesting(getContext()));
+        // Update the buttons state depending on whether location updates are being requested.
+        if (s.equals(UtilsPreferences.KEY_STATE_LOCATION_UPDATES)) {
+            Toast.makeText(getActivity(), ""+sharedPreferences.getBoolean(UtilsPreferences.KEY_STATE_LOCATION_UPDATES, false), Toast.LENGTH_SHORT).show();
         }
     }
 
-
-    private PendingIntent getPendingIntent() {
-        Intent intent = new Intent(getActivity(), LocationUpdatesBroadcastReceiver.class);
-        intent.setAction(LocationUpdatesBroadcastReceiver.ACTION_PROCESS_UPDATES);
-        return PendingIntent.getBroadcast(getActivity(), 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
-    }
-
-    public void requestLocationUpdates() {
-        try {
-            Log.i(TAG, "Starting location updates");
-            LocationStatePreferences.setRequesting(getContext(), true);
-            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, getPendingIntent());
-        } catch (SecurityException e) {
-            LocationStatePreferences.setRequesting(getContext(), false);
-            e.printStackTrace();
-        }
-    }
-
-    public void removeLocationUpdates() {
-        Log.i(TAG, "Removing location updates");
-        LocationStatePreferences.setRequesting(getContext(), false);
-        LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, getPendingIntent());
-    }
-
-    private void updateButtonsState(boolean requestingLocationUpdates) {
-
-    }
     //######################################################################################
     //--------------------------------- SET RECYCLER VIEW ---------------------------------
     //######################################################################################
@@ -534,14 +567,12 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
 
     @Override
     public void getDeliveriesConditionSuccessful(List<Delivery> deliveries) {
-        setRecyclerViewPedidos(deliveries);
-        UtilsPreferences.saveDeliveries(preferences,gson.toJson(deliveries));
+
     }
 
     @Override
     public void getClientSuccessful(Client client) {
         UtilsPreferences.saveClient(preferences,gson.toJson(client));
-        removeLocationUpdates();
         listener.setOnChangeToMap(Utils.KEY_DOMICILIARIO_FRAGMENT,R.id.cardview_dom);
     }
 
@@ -551,8 +582,8 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     }
 
     @Override
-    public void updateDomiciliarioSuccessful(Domiciliario domiciliario) {
-        UtilsPreferences.saveDomiciliario(preferences,gson.toJson(domiciliario));
+    public void updateDomiciliarioSuccessful(Domiciliario domiciliarioUpdated) {
+        UtilsPreferences.saveDomiciliario(preferences,gson.toJson(domiciliarioUpdated));
     }
 
     @Override
@@ -584,7 +615,6 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     public void getErrorConnection(String nameEvent, Throwable t) {
         if(nameEvent.contentEquals(DeliveryController.GETALL)){
             Toast.makeText(getActivity(), "Ha ocurrido un error de conexión", Toast.LENGTH_LONG).show();
-            deliveryController.getDeliveries();
         }
 
         if(nameEvent.contentEquals(ClientController.GET)){

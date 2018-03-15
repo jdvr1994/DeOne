@@ -42,8 +42,9 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".Actividades.IntroActivity"
-            android:theme="@style/Theme.Intro"></activity>
+        <activity
+            android:name=".Actividades.IntroActivity"
+            android:theme="@style/Theme.Intro" />
 
         <service
             android:name=".Services.NotificationServices.MyFirebaseInstanceIDService">
@@ -60,16 +61,6 @@
         </service>
 
 
-        <service android:name=".NuevoGPS.LocationUpdatesIntentService" android:exported="false"/>
-
-        <receiver android:name=".NuevoGPS.LocationUpdatesBroadcastReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name=".NuevoGPS.LocationUpdatesBroadcastReceiver.ACTION_PROCESS_UPDATES" />
-            </intent-filter>
-        </receiver>
-
-
         <!--
              The API key for Google Maps-based APIs is defined as a string resource.
              (See the file "res/values/google_maps_api.xml").
@@ -81,10 +72,6 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="@string/google_maps_key" />
-
-        <service android:name=".Services.GpsServices.ForegroundService">
-
-        </service>
 
         <service android:name=".Services.GpsServices.ForegroundLocationService">
 

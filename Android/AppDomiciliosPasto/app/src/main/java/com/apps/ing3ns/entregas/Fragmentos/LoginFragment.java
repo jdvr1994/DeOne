@@ -120,7 +120,7 @@ public class LoginFragment extends Fragment implements DomiciliarioListener {
     }
 
     @Override
-    public void updateDomiciliarioSuccessful(Domiciliario domiciliario) {
+    public void updateDomiciliarioSuccessful(Domiciliario domiciliarioUpdated) {
 
     }
 

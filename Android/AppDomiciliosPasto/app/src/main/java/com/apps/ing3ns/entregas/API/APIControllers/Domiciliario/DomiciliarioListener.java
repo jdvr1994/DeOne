@@ -10,7 +10,7 @@ import java.util.List;
 
 public interface DomiciliarioListener {
     void getDomiciliario(Domiciliario domiciliario);
-    void updateDomiciliarioSuccessful(Domiciliario domiciliario);
+    void updateDomiciliarioSuccessful(Domiciliario domiciliarioUpdated);
     void signInDomiciliarioSuccessful(Domiciliario domiciliario, String token);
     void getErrorMessage(String nameEvent,int code, String errorMessage);
     void getErrorConnection(String nameEvent, Throwable t);
