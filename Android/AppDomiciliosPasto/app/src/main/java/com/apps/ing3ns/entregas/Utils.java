@@ -34,6 +34,19 @@ public class Utils {
     public static final String KEY_DOMICILIARIO_FRAGMENT = "domiciliarioFragment";
     public static final String KEY_MAP_FRAGMENT = "mapFragment";
 
+    public static final String TOPIC_STATE_0 = "STATE_0";
+    public static final String TOPIC_STATE_1 = "STATE_1";
+    public static final String TOPIC_STATE_2 = "STATE_2";
+
+    public static final int DELIVERY_DISPONIBLE = 0;
+    public static final int DELIVERY_RECOGIENDO = 1;
+    public static final int DELIVERY_ENTREGANDO = 2;
+    public static final int DELIVERY_FINALIZADO = 3;
+
+    public static final int DOMICILIARIO_INACTIVO = 0;
+    public static final int DOMICILIARIO_ACTIVO = 1;
+    public static final int DOMICILIARIO_ENTREGANDO = 2;
+
     //-----------------------------------------------------------------------------------------
     //--------------------- FUNCIONES DISTANCIA CON CLIENTE -----------------------------------
 

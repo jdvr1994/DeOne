@@ -2,13 +2,11 @@ package com.apps.ing3ns.entregas.Fragmentos;
 
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.IntentSender;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -35,10 +33,8 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.apps.ing3ns.entregas.API.APIControllers.Delivery.DeliveryController;
-import com.apps.ing3ns.entregas.API.APIControllers.Delivery.DeliveryListener;
-import com.apps.ing3ns.entregas.API.APIControllers.Domiciliario.DomiciliarioController;
-import com.apps.ing3ns.entregas.API.APIControllers.Domiciliario.DomiciliarioListener;
+import com.apps.ing3ns.entregas.API.APIControllers.Delivery.DeliveryAcceptController;
+import com.apps.ing3ns.entregas.API.APIControllers.Delivery.DeliveryAcceptListener;
 import com.apps.ing3ns.entregas.Actividades.MainActivity;
 import com.apps.ing3ns.entregas.BuildConfig;
 import com.apps.ing3ns.entregas.Listeners.FragmentsListener;
@@ -46,9 +42,7 @@ import com.apps.ing3ns.entregas.Modelos.Client;
 import com.apps.ing3ns.entregas.Modelos.Delivery;
 import com.apps.ing3ns.entregas.Modelos.Domiciliario;
 import com.apps.ing3ns.entregas.R;
-import com.apps.ing3ns.entregas.Services.GpsServices.Constants;
 import com.apps.ing3ns.entregas.Services.GpsServices.ForegroundLocationService;
-import com.apps.ing3ns.entregas.Services.GpsServices.ForegroundService;
 import com.apps.ing3ns.entregas.Utils;
 import com.apps.ing3ns.entregas.UtilsPreferences;
 import com.apps.ing3ns.entregas.modelsRoutes.MostrarRuta;
@@ -56,15 +50,6 @@ import com.apps.ing3ns.entregas.modelsRoutes.MostrarRutaListener;
 import com.apps.ing3ns.entregas.modelsRoutes.Route;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
-import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.common.api.Status;
-import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.LocationSettingsRequest;
-import com.google.android.gms.location.LocationSettingsResult;
-import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
@@ -76,17 +61,17 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import java.io.UnsupportedEncodingException;
-import java.util.HashMap;
 import java.util.List;
 
 /**
  * A simple {@link Fragment} subclass.
  */
-public class MapFragment extends Fragment implements MostrarRutaListener,OnMapReadyCallback, DeliveryListener, DomiciliarioListener, SharedPreferences.OnSharedPreferenceChangeListener {
+public class MapFragment extends Fragment implements MostrarRutaListener,OnMapReadyCallback, SharedPreferences.OnSharedPreferenceChangeListener, DeliveryAcceptListener {
     //######################################################################################
     //---------------- NUEVO SERVICIO DE UBICACION BACKGROUND/FOREGROUND -------------------
     //######################################################################################
@@ -133,8 +118,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
     /**
      * Objetos y Controladores de eventos API REST.
      */
-    private DeliveryController deliveryController;
-    private DomiciliarioController domiciliarioController;
+    private DeliveryAcceptController deliveryAcceptController;
     private Domiciliario domiciliario;
     private Delivery delivery;
     private Client client;
@@ -185,8 +169,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         Log.i(TAG,"On CreateView Fragment Maps");
         myReceiver = new MyReceiver();
         // Inicializo los controladores de eventos API REST
-        deliveryController = new DeliveryController(this);
-        domiciliarioController = new DomiciliarioController(this);
+        deliveryAcceptController = new DeliveryAcceptController(this);
         gson = new GsonBuilder().create();
 
         return rootView;
@@ -198,6 +181,10 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         super.onViewCreated(view, savedInstanceState);
         bindUI(view);
 
+        FirebaseMessaging.getInstance().subscribeToTopic(Utils.TOPIC_STATE_2);
+        FirebaseMessaging.getInstance().unsubscribeFromTopic(Utils.TOPIC_STATE_0);
+        FirebaseMessaging.getInstance().unsubscribeFromTopic(Utils.TOPIC_STATE_1);
+
         // Rescato informacion del domiciliario, cliente y delivery
         // atravez de las SharedPreferences y la VISUALIZO.
         preferences = getActivity().getSharedPreferences("Preferences", Context.MODE_PRIVATE);
@@ -208,7 +195,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
 
         // Recupero el Delivery desde el Server para verificar que esta en estado 0
         // Asignarle el domiciliario y actualizar su estado
-        deliveryController.getDelivery(delivery.get_id());
+        deliveryAcceptController.getDelivery(delivery.get_id());
 
         //------------------- COMPROBAR CONEXION MAPAS ---------------------
         GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
@@ -229,30 +216,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
             public void onClick(View view) {
                 textCargando.setText("Finalizando Pedido");
                 cargando.setVisibility(View.VISIBLE);
-
-
-                //PROVISIONAL
-                cargando.setVisibility(View.INVISIBLE);
-                UtilsPreferences.removeDelivery(preferences);
-                UtilsPreferences.removeClient(preferences);
-                gpsServiceAction(Constants.ACTION.STOP_FOREGROUND);
-                listener.setOnChangeToDomiciliario(Utils.KEY_MAP_FRAGMENT, R.id.btn_ok);
-
-
-                // Llamo al metodo DeliveryFinished del API Rest , le envio una id_domiciliario y una id_delivery
-                // Este metodo hara lo siguiente:::
-                // Actualizo el estado del Delivery a 3
-                // Agrego el id_delivery al domiciliario
-                // SI SU RESPUESTA ES CORRECTA :
-                /*
-                    cargando.setVisibility(View.INVISIBLE);
-                    UtilsPreferences.removeDelivery(preferences);
-                    UtilsPreferences.removeClient(preferences);
-                    gpsServiceAction(Constants.ACTION.STOP_FOREGROUND);
-                    listener.setOnChangeToDomiciliario(Utils.KEY_MAP_FRAGMENT, R.id.btn_ok);
-                 */
-                // SI SU RESPUESTA ES ERROR:
-
+                deliveryAcceptController.finishDelivery(domiciliario.get_id(),delivery.get_id());
             }
         });
 
@@ -480,6 +444,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
             Location location = intent.getParcelableExtra(ForegroundLocationService.EXTRA_LOCATION);
             if (location != null) {
                 Toast.makeText(getActivity(), Utils.getLocationText(location), Toast.LENGTH_SHORT).show();
+                markerDomiciliario.setPosition(new LatLng(location.getLatitude(),location.getLongitude()));
             }
         }
     }
@@ -512,6 +477,9 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
 
     public void MarkerInit(){
         LatLng pasto = new LatLng(1.2080008824889852, -77.2782935335938);
+        Location lastLocation = gson.fromJson(UtilsPreferences.getLastLocation(preferences),Location.class);
+        if(lastLocation!=null)pasto = new LatLng(lastLocation.getLatitude(),lastLocation.getLongitude());
+
         markerDomiciliario = gMap.addMarker(new MarkerOptions()
                 .position(pasto)
                 .title(getResources().getString(R.string.user_position_title))
@@ -597,82 +565,62 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         if(polylineRuta != null) polylineRuta.remove();
     }
 
-    //-------------------------- START AND STOP SERVICE FOREGROUND -------------------------
-    public void gpsServiceAction(String action){
-        Intent startIntent = new Intent(getActivity(), ForegroundService.class);
-        //startIntent.putExtra("usuario",gson.toJson(pedido.getIdUsuario()));
-        startIntent.setAction(action);
-        getActivity().startService(startIntent);
-    }
-
-    @Override
-    public void getDeliveries(List<Delivery> deliveries) {
-
-    }
+    //######################################################################################
+    //--------------------------------- Funciones Api Rest ---------------------------------
+    //######################################################################################
 
     @Override
     public void getDelivery(Delivery newDelivery) {
-        if(newDelivery.getState()==0) {
-            // Llamo al metodo StartDelivery del API Rest , le envio una id_domiciliario y una id_delivery
-            // Este metodo hara lo siguiente:::
-            // Actualiza al delivery con la id_domiciliario y su estado a 1
-            // Actualiza el estado del domiciliario a 2
-            // SI SU RESPUESTA ES CORRECTA :
-                /*
-                    Toast.makeText(getActivity(), "Tu has aceptado este pedido correctamente... Tu cliente te esta esperando", Toast.LENGTH_LONG).show();
-                 */
-            // SI SU RESPUESTA ES ERROR:
-            /*
-                Toast.makeText(getActivity(), "Ocurrio tal error", Toast.LENGTH_LONG).show();
-                returnToDomiciliarioFragment();
-             */
-        }else{
-            if(domiciliario.getState()!=2) {
-                Toast.makeText(getActivity(), "Alguien mas acepto el pedido antes", Toast.LENGTH_LONG).show();
+        if(newDelivery.getState()== Utils.DELIVERY_DISPONIBLE) {
+            deliveryAcceptController.startDelivery(domiciliario.get_id(),newDelivery.get_id());
+        }else {
+            if (domiciliario.getState() != Utils.DOMICILIARIO_ENTREGANDO) {
+                Toast.makeText(getActivity(), "Alguien mas acepto el pedido antes.", Toast.LENGTH_LONG).show();
                 returnToDomiciliarioFragment();
             }
         }
     }
 
     @Override
-    public void updateDeliverySuccessful(Delivery delivery) {
-
+    public void startDeliverySuccessful(String message) {
+        Toast.makeText(getActivity(), "Tu cliente te esta esperando...", Toast.LENGTH_LONG).show();
     }
 
     @Override
-    public void getDeliveriesConditionSuccessful(List<Delivery> deliveries) {
-
-    }
-
-    @Override
-    public void getDomiciliario(Domiciliario domiciliario) {
-
-    }
-
-    @Override
-    public void updateDomiciliarioSuccessful(Domiciliario domiciliarioUpdated) {
-
-    }
-
-    @Override
-    public void signInDomiciliarioSuccessful(Domiciliario domiciliario, String token) {
-
+    public void finishDeliverySuccessful(String message) {
+        Toast.makeText(getActivity(), "Entrega completada con exito.", Toast.LENGTH_LONG).show();
+        cargando.setVisibility(View.INVISIBLE);
+        UtilsPreferences.removeDelivery(preferences);
+        UtilsPreferences.removeClient(preferences);
+        listener.setOnChangeToDomiciliario(Utils.KEY_MAP_FRAGMENT, R.id.btn_ok);
     }
 
     @Override
     public void getErrorMessage(String nameEvent, int code, String errorMessage) {
-        if(nameEvent.contentEquals(DeliveryController.GET)){
+        Log.i(TAG, nameEvent + "  "+ code + "  " + errorMessage);
+        if(nameEvent.contentEquals(DeliveryAcceptController.GET)){
             Toast.makeText(getActivity(), errorMessage , Toast.LENGTH_LONG).show();
             returnToDomiciliarioFragment();
+        }
+
+        if(nameEvent.contentEquals(DeliveryAcceptController.START)){
+            if(code==500) Toast.makeText(getActivity(), "No se pudo completar la acción." , Toast.LENGTH_LONG).show();
+            else Toast.makeText(getActivity(), errorMessage, Toast.LENGTH_SHORT).show();
+            returnToDomiciliarioFragment();
+        }
+
+        if(nameEvent.contentEquals(DeliveryAcceptController.FINISH)){
+            if(code==500) Toast.makeText(getActivity(), "No se pudo completar la acción" , Toast.LENGTH_LONG).show();
+            else Toast.makeText(getActivity(), errorMessage, Toast.LENGTH_SHORT).show();
         }
     }
 
     @Override
     public void getErrorConnection(String nameEvent, Throwable t) {
-        if(nameEvent.contentEquals(DeliveryController.GET)){
+            if(!nameEvent.contentEquals(DeliveryAcceptController.FINISH)){
+                returnToDomiciliarioFragment();
+            }
             Toast.makeText(getActivity(), "Ha ocurrido un error de conexión" , Toast.LENGTH_LONG).show();
-            returnToDomiciliarioFragment();
-        }
     }
 
     public void returnToDomiciliarioFragment(){
@@ -680,7 +628,6 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         cargando.setVisibility(View.VISIBLE);
         UtilsPreferences.removeDelivery(preferences);
         UtilsPreferences.removeClient(preferences);
-        gpsServiceAction(Constants.ACTION.STOP_FOREGROUND);
         cargando.setVisibility(View.INVISIBLE);
         listener.setOnChangeToDomiciliario(Utils.KEY_MAP_FRAGMENT, R.id.btn_ok);
     }

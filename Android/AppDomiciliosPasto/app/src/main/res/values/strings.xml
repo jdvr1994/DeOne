@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">De One</string>
     <string name="default_notification_channel_id">channel_primary</string>
+    <string name="new_delivery_channel_id">newDeliveryNotification</string>
 
     <string name="ingresa_tu_pass">Ingresa tu contraseña</string>
     <string name="ingresa_tu_usuario">Ingresa tu usuario</string>
@@ -27,6 +28,8 @@
     <string name="remove_location_updates">Apagar Servicio</string>
     <string name="location_updated">Ubicacion Actual: %1$s</string>
     <string name="launch_activity">Abrir App</string>
+    <string name="detener_busqueda">Detener Busqueda</string>
+    <string name="launch_ver_pedido">Ver Pedido</string>
 
     <string name="permission_denied_explanation">El Permiso fue denegado, pero este es necesario para
         el funcionamiento de la App</string>

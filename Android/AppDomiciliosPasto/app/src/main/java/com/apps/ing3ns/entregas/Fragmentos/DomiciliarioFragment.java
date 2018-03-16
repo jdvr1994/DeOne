@@ -1,17 +1,14 @@
 package com.apps.ing3ns.entregas.Fragmentos;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.IntentSender;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -36,8 +33,6 @@ import android.widget.Toast;
 
 import com.apps.ing3ns.entregas.API.APIControllers.Client.ClientController;
 import com.apps.ing3ns.entregas.API.APIControllers.Client.ClientListener;
-import com.apps.ing3ns.entregas.API.APIControllers.Delivery.DeliveryController;
-import com.apps.ing3ns.entregas.API.APIControllers.Delivery.DeliveryListener;
 import com.apps.ing3ns.entregas.API.APIControllers.Domiciliario.DomiciliarioController;
 import com.apps.ing3ns.entregas.API.APIControllers.Domiciliario.DomiciliarioListener;
 import com.apps.ing3ns.entregas.Actividades.MainActivity;
@@ -51,16 +46,7 @@ import com.apps.ing3ns.entregas.R;
 import com.apps.ing3ns.entregas.Services.GpsServices.ForegroundLocationService;
 import com.apps.ing3ns.entregas.Utils;
 import com.apps.ing3ns.entregas.UtilsPreferences;
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
-import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.common.api.Status;
-import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.LocationSettingsRequest;
-import com.google.android.gms.location.LocationSettingsResult;
-import com.google.android.gms.location.LocationSettingsStatusCodes;
+import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -72,7 +58,7 @@ import java.util.List;
  * Created by JuanDa on 14/02/2018.
  */
 
-public class DomiciliarioFragment extends Fragment implements DeliveryListener, ClientListener, DomiciliarioListener, SharedPreferences.OnSharedPreferenceChangeListener {
+public class DomiciliarioFragment extends Fragment implements  ClientListener, DomiciliarioListener, SharedPreferences.OnSharedPreferenceChangeListener {
 
     //######################################################################################
     //---------------- NUEVO SERVICIO DE UBICACION BACKGROUND/FOREGROUND -------------------
@@ -120,7 +106,6 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     /**
      * Objetos y Controladores de eventos API REST.
      */
-    private DeliveryController deliveryController;
     private ClientController clientController;
     private DomiciliarioController domiciliarioController;
     private Domiciliario domiciliario;
@@ -162,7 +147,6 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
         Log.i(TAG,"On CreateView Fragment Domiciliario");
         myReceiver = new MyReceiver();
         // Inicializo los controladores de eventos API REST
-        deliveryController = new DeliveryController(this);
         clientController = new ClientController(this);
         domiciliarioController = new DomiciliarioController(this);
         bindUI(view);
@@ -172,13 +156,18 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
         Log.i(TAG,"On View Created Fragment Domiciliario");
+
+        FirebaseMessaging.getInstance().subscribeToTopic(Utils.TOPIC_STATE_1);
+        FirebaseMessaging.getInstance().unsubscribeFromTopic(Utils.TOPIC_STATE_0);
+        FirebaseMessaging.getInstance().unsubscribeFromTopic(Utils.TOPIC_STATE_2);
+
         // Rescato informacion del domiciliario atravez de las SharedPreferences y la VISUALIZO.
         preferences = getActivity().getSharedPreferences("Preferences", Context.MODE_PRIVATE);
         domiciliario = gson.fromJson(UtilsPreferences.getDomiciliario(preferences),Domiciliario.class);
         setCardViewDomiciliario(domiciliario);
 
         // Actualizo el estado del DOMICILIARIO.
-        domiciliarioController.updateDomiciliario(domiciliario.get_id(),Utils.getHashMapTokenAndState(1));
+        domiciliarioController.updateDomiciliario(domiciliario.get_id(),Utils.getHashMapTokenAndState(Utils.DOMICILIARIO_ACTIVO));
 
         // Configuro e inicializo lo necesario para la visualizacion del RecyclerView
         layoutManager = new LinearLayoutManager(getContext());
@@ -411,17 +400,11 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     private class MyReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Location location = intent.getParcelableExtra(ForegroundLocationService.EXTRA_LOCATION);
-            if (location != null) {
-                Toast.makeText(getActivity(), Utils.getLocationText(location), Toast.LENGTH_SHORT).show();
-            }
-
             String nearbyDeliveriesJson = intent.getStringExtra(ForegroundLocationService.EXTRA_NEARBY_DELIVERIES);
             if(nearbyDeliveriesJson!=null){
                 Toast.makeText(getActivity(), "Pedidos Cercanos Actualizados", Toast.LENGTH_SHORT).show();
                 List<Delivery> nearbyDeliveries =  gson.fromJson(nearbyDeliveriesJson,new TypeToken<List<Delivery>>(){}.getType());
-                adapter.setDeliveries(nearbyDeliveries);
-                adapter.notifyDataSetChanged();
+                setRecyclerViewPedidos(nearbyDeliveries);
             }
         }
     }
@@ -430,7 +413,7 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s) {
         // Update the buttons state depending on whether location updates are being requested.
         if (s.equals(UtilsPreferences.KEY_STATE_LOCATION_UPDATES)) {
-            Toast.makeText(getActivity(), ""+sharedPreferences.getBoolean(UtilsPreferences.KEY_STATE_LOCATION_UPDATES, false), Toast.LENGTH_SHORT).show();
+            Log.i(TAG,"Conexion con el Servicio: "+sharedPreferences.getBoolean(UtilsPreferences.KEY_STATE_LOCATION_UPDATES,false));
         }
     }
 
@@ -447,26 +430,6 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     //######################################################################################
     //--------------------------------- Funciones Api Rest ---------------------------------
     //######################################################################################
-
-    @Override
-    public void getDeliveries(List<Delivery> deliveries) {
-        setRecyclerViewPedidos(deliveries);
-    }
-
-    @Override
-    public void getDelivery(Delivery delivery) {
-
-    }
-
-    @Override
-    public void updateDeliverySuccessful(Delivery delivery) {
-
-    }
-
-    @Override
-    public void getDeliveriesConditionSuccessful(List<Delivery> deliveries) {
-
-    }
 
     @Override
     public void getClientSuccessful(Client client) {
@@ -491,40 +454,24 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
 
     @Override
     public void getErrorMessage(String nameEvent, int code, String errorMessage) {
-        if(nameEvent.contentEquals(DeliveryController.GETALL)){
-            Toast.makeText(getActivity(), errorMessage , Toast.LENGTH_LONG).show();
-        }
-
         if(nameEvent.contentEquals(ClientController.GET)){
             Toast.makeText(getActivity(), errorMessage , Toast.LENGTH_LONG).show();
             cargando.setVisibility(View.INVISIBLE);
         }
 
         if(nameEvent.contentEquals(DomiciliarioController.UPDATE)){
-            Toast.makeText(getActivity(), errorMessage , Toast.LENGTH_LONG).show();
-        }
-
-        if(nameEvent.contentEquals(DeliveryController.GETCONDITION)){
             Toast.makeText(getActivity(), errorMessage , Toast.LENGTH_LONG).show();
         }
     }
 
     @Override
     public void getErrorConnection(String nameEvent, Throwable t) {
-        if(nameEvent.contentEquals(DeliveryController.GETALL)){
-            Toast.makeText(getActivity(), "Ha ocurrido un error de conexión", Toast.LENGTH_LONG).show();
-        }
-
         if(nameEvent.contentEquals(ClientController.GET)){
             Toast.makeText(getActivity(), "Ha ocurrido un error de conexión", Toast.LENGTH_LONG).show();
             cargando.setVisibility(View.INVISIBLE);
         }
 
         if(nameEvent.contentEquals(DomiciliarioController.UPDATE)){
-            Toast.makeText(getActivity(), "Ha ocurrido un error de conexión", Toast.LENGTH_LONG).show();
-        }
-
-        if(nameEvent.contentEquals(DeliveryController.GETCONDITION)){
             Toast.makeText(getActivity(), "Ha ocurrido un error de conexión", Toast.LENGTH_LONG).show();
         }
     }

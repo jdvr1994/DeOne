@@ -12,6 +12,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.location.Location;
 import android.os.Binder;
 import android.os.Build;
@@ -87,6 +89,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
     public static final String EXTRA_LOCATION = PACKAGE_NAME + ".location";
     public static final String EXTRA_NEARBY_DELIVERIES = PACKAGE_NAME + ".nearby_deliveries";
     public static final String EXTRA_STARTED_FROM_NOTIFICATION = PACKAGE_NAME + ".started_from_notification";
+    private static final String NEW_DELIVERY_CHANNEL = "new_delivery_chanel";
 
     private final IBinder mBinder = new LocalBinder();
 
@@ -95,7 +98,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
      */
     private static final long UPDATE_INTERVAL_IN_MILLISECONDS = 10 * 1000;
     private static final long FASTEST_UPDATE_INTERVAL_IN_MILLISECONDS = UPDATE_INTERVAL_IN_MILLISECONDS / 2;
-    private static final long MAX_WAIT_TIME_IN_MILLISECONDS = UPDATE_INTERVAL_IN_MILLISECONDS * 3;
+    private static final long MAX_WAIT_TIME_IN_MILLISECONDS = UPDATE_INTERVAL_IN_MILLISECONDS * 2;
 
     /**
      * Variables para administrar Servicio de Ubicación
@@ -148,10 +151,12 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
 
             switch (type) {
                 case MyFirebaseMessagingService.KEY_TYPE_ADD_DELIVERY:
+                    Log.i(TAG,"Nuevo Delivery Añadido");
                     deliveriesActivos.add(delivery);
                     break;
 
                 case MyFirebaseMessagingService.KEY_TYPE_DELETE_DELIVERY:
+                    Log.i(TAG,"Delivery Eliminado");
                     Delivery.removeDelivery(deliveriesActivos, delivery.get_id());
                     break;
             }
@@ -202,8 +207,12 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
             CharSequence name = getString(R.string.app_name);
             // Creamos el canal para la notificacion
             NotificationChannel mChannel = new NotificationChannel(CHANNEL_ID, name, NotificationManager.IMPORTANCE_DEFAULT);
+            NotificationChannel channel =  new NotificationChannel(NEW_DELIVERY_CHANNEL, getString(R.string.new_delivery_channel_id), NotificationManager.IMPORTANCE_DEFAULT);
+            channel.setLightColor(Color.GREEN);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
             // Creamos el Canal de Notificaciones para el Notification Manager.
             mNotificationManager.createNotificationChannel(mChannel);
+            mNotificationManager.createNotificationChannel(channel);
         }
 
         /** Registramos nuestro BroadCastReceiver para recibir actualizaciones de Deliveries
@@ -284,6 +293,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
 
     @Override
     public void onDestroy() {
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(AddOrRemoveDeliveryReceiver);
         mServiceHandler.removeCallbacksAndMessages(null);
     }
 
@@ -334,7 +344,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
         // Recuperamos los pedidos cercanos que tenemos hasta el momento
         if(nearbyDeliveries.size()>0)getNearbyDeliveries();
         // Recuperamos todos los Deliveries en estado 0
-        deliveryController.getDeliveriesCondition(Utils.getHashMapState(0));
+        deliveryController.getDeliveriesCondition(Utils.getHashMapState(Utils.DELIVERY_DISPONIBLE));
     }
 
     /**
@@ -380,22 +390,33 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
         PendingIntent activityPendingIntent = PendingIntent.getActivity(this, 0, new Intent(this, SplashActivity.class), 0);
 
         // Configuramos el texto y el titulo de la notificacion FOREGROUND
-        CharSequence text = Utils.getLocationText(mLocation);
-        CharSequence tittle = Utils.getLocationTitle(this);
+        CharSequence text;
+        CharSequence tittle;
+        if (delivery == null) {
+            tittle = "Buscando Pedidos...";
+            text = "DeOne esta buscando pedidos cerca de ti";
+        }
+        else {
+            tittle = "Entrega en proceso";
+            text = "Tu cliente te esta esperando";
+        }
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this)
                 .addAction(R.drawable.ic_launch, getString(R.string.launch_activity),
                         activityPendingIntent)
-                .addAction(R.drawable.ic_cancel, getString(R.string.remove_location_updates),
-                        servicePendingIntent)
                 .setContentText(text)
                 .setContentTitle(tittle)
                 .setOngoing(true)
                 .setPriority(Notification.PRIORITY_HIGH)
-                .setSmallIcon(R.mipmap.ic_moto)
+                .setSound(null)
+                .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.mipmap.ic_marker_notification))
+                .setSmallIcon(R.drawable.myicon)
                 .setTicker(text)
                 .setWhen(System.currentTimeMillis());
 
+        if(delivery==null){
+            builder.addAction(R.drawable.ic_cancel, getString(R.string.detener_busqueda), servicePendingIntent);
+        }
         // Configuramos el Channel ID para Android O.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             builder.setChannelId(CHANNEL_ID); // Channel ID
@@ -497,15 +518,18 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
             map.put("position",gson.toJson(domiciliario.getPosition()));
             domiciliarioController.updateDomiciliario(domiciliario.get_id(),map);
 
+            // Si se acerca mucho a la posicion de recogida el pedido pasa a estado 2
+            if(delivery.getState()!=Utils.DELIVERY_ENTREGANDO) {
+                if (Utils.distance(delivery.getPositionStart().getLat(), delivery.getPositionStart().getLng(), domiciliario.getPosition().getLat(), domiciliario.getPosition().getLng()) < 0.07) {
+                    deliveryController.updateDelivery(delivery.get_id(), Utils.getHashMapState(Utils.DELIVERY_ENTREGANDO));
+                }
+            }
+
             /*
             if (!cercaEnviado) {
                 if (Utils.distance(delivery.getPositionStart().getLat(), delivery.getPositionStart().getLng(), domiciliario.getPosition().getLat(), domiciliario.getPosition().getLng()) < 0.2) {
                     cercaEnviado = true;
                     pedidoCerca();
-                }
-
-                if (Utils.distance(delivery.getPositionStart().getLat(), delivery.getPositionStart().getLng(), domiciliario.getPosition().getLat(), domiciliario.getPosition().getLng()) < 0.07) {
-                    //Cambio el estado del domiciliario y/o pedido
                 }
             }
             */
@@ -524,7 +548,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
                 // Compruebo que halla ocurrido un cambio en la lista de Nerby Deliveries
                 if(!Delivery.compareListDeliveries(nearbyDeliveries,lastDeliveryID,numLastDeliveries)) {
                     if(nearbyDeliveries.size()>numLastDeliveries) {
-                       //Muestro Notificacion con sonido para informar de Nuevo Pedido
+                        showNotificationNewDelivery();
                     }
 
                     // Asigno valores para numLastDeliveries y para lastDeliveryID
@@ -537,6 +561,37 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
             }
         }
 
+    }
+
+    /**
+     * Mostrar Notificacion cuando se detecta un nuevo pedido cercano
+     */
+    private void showNotificationNewDelivery() {
+        PendingIntent activityPendingIntent = PendingIntent.getActivity(this, 0, new Intent(this, SplashActivity.class), 0);
+
+        // Configuramos el texto y el titulo de la notificacion FOREGROUND
+        CharSequence tittle = "Tienes un nuevo pedido disponible";
+        CharSequence text = nearbyDeliveries.get(nearbyDeliveries.size()-1).getAddressStart();
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this)
+                .addAction(R.drawable.ic_launch, getString(R.string.launch_ver_pedido), activityPendingIntent)
+                .setContentIntent(activityPendingIntent)
+                .setContentText(text)
+                .setContentTitle(tittle)
+                .setOngoing(false)
+                .setPriority(Notification.PRIORITY_HIGH)
+                .setVibrate(new long[] {100, 250, 100, 500})
+                .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.mipmap.ic_moto))
+                .setSmallIcon(R.drawable.myicon)
+                .setTicker(text)
+                .setWhen(System.currentTimeMillis());
+
+        // Configuramos el Channel ID para Android O.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            builder.setChannelId(NEW_DELIVERY_CHANNEL); // Channel ID
+        }
+
+        mNotificationManager.notify(Constants.NOTIFICATION_ID.NEW_DELIVERY, builder.build());
     }
 
     /**
@@ -581,6 +636,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
     @Override
     public void getDeliveriesConditionSuccessful(List<Delivery> deliveries) {
         //-------- Recibo todos los deliveries en estado 0------
+        Log.i(TAG,"Deliveries Actualizados");
         deliveriesActivos = deliveries;
         if(mLocation==null)mLocation = gson.fromJson(UtilsPreferences.getLastLocation(preferences),Location.class);
         if(mLocation==null){
@@ -590,6 +646,8 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
         }
         List<Delivery> nearbyDeliveriesFirstTime = Delivery.getNearbyDeliveries(deliveriesActivos, mLocation, 1.9);
         if(nearbyDeliveries.size()==0)getNearbyDeliveriesFirsTime(nearbyDeliveriesFirstTime);
+
+        Log.i(TAG,"cercanos  anteriores: "+nearbyDeliveries.size() + "  cercanos actuales: "+nearbyDeliveriesFirstTime.size());
     }
 
     /**

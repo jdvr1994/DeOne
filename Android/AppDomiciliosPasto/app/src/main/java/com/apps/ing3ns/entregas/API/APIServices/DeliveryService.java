@@ -36,4 +36,12 @@ public interface DeliveryService {
     @PUT("delivery/{deliveryId}")
     @FormUrlEncoded
     Call<Delivery> updateDelivery(@Path("deliveryId") String deliveryId, @FieldMap HashMap<String, String> fields);
+
+    @POST("delivery/start")
+    @FormUrlEncoded
+    Call<ResponseBody> startDelivery(@Field("domiciliario") String domiciliarioId, @Field("delivery") String deliveryId);
+
+    @POST("delivery/finish")
+    @FormUrlEncoded
+    Call<ResponseBody> finishDelivery(@Field("domiciliario") String domiciliarioId, @Field("delivery") String deliveryId);
 }

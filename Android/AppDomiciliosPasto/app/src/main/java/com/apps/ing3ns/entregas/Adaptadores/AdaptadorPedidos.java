@@ -73,7 +73,7 @@ public class AdaptadorPedidos extends RecyclerView.Adapter<AdaptadorPedidos.View
         return deliveries.size();
     }
 
-    public void animateCircularReveal(View view){
+    private void animateCircularReveal(View view){
         int centerX = 0;
         int centerY = 0;
         int startRadius = 0;
@@ -86,17 +86,17 @@ public class AdaptadorPedidos extends RecyclerView.Adapter<AdaptadorPedidos.View
         }
     }
 
-    public class ViewHolder extends RecyclerView.ViewHolder {
+    class ViewHolder extends RecyclerView.ViewHolder {
 
-        public TextView idText;
-        public TextView addressStart;
-        public TextView addressEnd;
-        public TextView phone;
-        public Button btnDeOne;
-        public CardView cardView2;
+        TextView idText;
+        TextView addressStart;
+        TextView addressEnd;
+        TextView phone;
+        Button btnDeOne;
+        CardView cardView2;
 
 
-        public ViewHolder(View itemView) {
+        ViewHolder(View itemView) {
             super(itemView);
             idText = itemView.findViewById(R.id.text_id_pedido);
             addressStart = itemView.findViewById(R.id.txt_addressStart);
@@ -106,7 +106,7 @@ public class AdaptadorPedidos extends RecyclerView.Adapter<AdaptadorPedidos.View
             btnDeOne = itemView.findViewById(R.id.btnDone);
         }
 
-        public void  bind(final Delivery delivery, final OnItemClickListener listener){
+        void  bind(final Delivery delivery, final OnItemClickListener listener){
 
             idText.setText(String.valueOf(deliveries.indexOf(delivery)+1));
             addressStart.setText(delivery.getAddressStart());

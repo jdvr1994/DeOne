@@ -15,5 +15,6 @@ public class Constants {
 
     public interface NOTIFICATION_ID {
         public static int FOREGROUND_SERVICE_GPS = 101;
+        public static int NEW_DELIVERY = 111;
     }
 }

@@ -160,7 +160,7 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
 
             case R.id.menu_cerrar_sesion:
                 domiciliario = gson.fromJson(UtilsPreferences.getDomiciliario(prefs),Domiciliario.class);
-                domiciliarioController.updateDomiciliario(domiciliario.get_id(),Utils.getHashMapState(0));
+                domiciliarioController.updateDomiciliario(domiciliario.get_id(),Utils.getHashMapState(Utils.DOMICILIARIO_INACTIVO));
                 UtilsPreferences.removeToken(prefs);
                 UtilsPreferences.removeDomiciliario(prefs);
                 UtilsPreferences.removeDelivery(prefs);
@@ -410,6 +410,7 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
     @Override
     public void setOnChangeToMap(String tagPrevFragment, int idObjectUI) {
         if(domiciliarioFragment.isVisible()) performTransition(domiciliarioFragment,Utils.KEY_MAP_FRAGMENT,mapFragment,idObjectUI);
+        if(loginFragment.isVisible()) performTransition(loginFragment,Utils.KEY_MAP_FRAGMENT,mapFragment,idObjectUI);
         menuController.setMenuLateralLogOut();
     }
 

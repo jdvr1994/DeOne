@@ -24,6 +24,7 @@ import com.apps.ing3ns.entregas.Modelos.Domiciliario;
 import com.apps.ing3ns.entregas.R;
 import com.apps.ing3ns.entregas.Utils;
 import com.apps.ing3ns.entregas.UtilsPreferences;
+import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -62,6 +63,11 @@ public class LoginFragment extends Fragment implements DomiciliarioListener {
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_login, container, false);
         bindUI(view);
+
+        FirebaseMessaging.getInstance().subscribeToTopic(Utils.TOPIC_STATE_0);
+        FirebaseMessaging.getInstance().unsubscribeFromTopic(Utils.TOPIC_STATE_1);
+        FirebaseMessaging.getInstance().unsubscribeFromTopic(Utils.TOPIC_STATE_2);
+
         prefs = getActivity().getSharedPreferences("Preferences", Context.MODE_PRIVATE);
         domiciliarioController = new DomiciliarioController(this);
 
@@ -129,8 +135,8 @@ public class LoginFragment extends Fragment implements DomiciliarioListener {
         cargando.setVisibility(View.INVISIBLE);
         UtilsPreferences.saveToken(prefs,token);
         UtilsPreferences.saveDomiciliario(prefs,gson.toJson(domiciliario));
-        //((MainActivity)getActivity()).performTransition(getFragmentManager().findFragmentByTag(Utils.KEY_LOGIN_FRAGMENT),Utils.KEY_DOMICILIARIO_FRAGMENT,new DomiciliarioFragment(),R.id.boton_entrar);
-        listener.setOnChangeToDomiciliario(Utils.KEY_LOGIN_FRAGMENT,R.id.boton_entrar);
+        if(domiciliario.getState()!=Utils.DOMICILIARIO_ENTREGANDO) listener.setOnChangeToDomiciliario(Utils.KEY_LOGIN_FRAGMENT,R.id.boton_entrar);
+        else listener.setOnChangeToMap(Utils.KEY_LOGIN_FRAGMENT,R.id.boton_entrar);
     }
 
     @Override
