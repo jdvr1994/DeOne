@@ -1,0 +1,120 @@
+public class MainActivity extends AppCompatActivity {
+    private CallbackManager callbackManager;
+    private LoginButton loginButton;
+    private AccessTokenTracker accessTokenTracker;
+    private AccessToken accessToken;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        callbackManager = CallbackManager.Factory.create();
+        loginButton = findViewById(R.id.login_button);
+
+        loginButton = (LoginButton) findViewById(R.id.login_button);
+        loginButton.setReadPermissions("email");
+
+        readUserInfoFacebook();
+        // Callback registration
+        loginButton.registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
+            @Override
+            public void onSuccess(LoginResult loginResult) {
+                readUserInfoFacebook();
+            }
+
+            @Override
+            public void onCancel() {
+                Log.d("FACEBOOK","Login OnCancel");
+            }
+
+            @Override
+            public void onError(FacebookException exception) {
+                Log.d("FACEBOOK","Exception"+exception.getMessage());
+            }
+        });
+
+        //----------------------FACEBOOK CLICK LOGOUT ------------------------------
+        accessTokenTracker = new AccessTokenTracker() {
+            @Override
+            protected void onCurrentAccessTokenChanged(AccessToken oldAccessToken, AccessToken currentAccessToken) {
+                if(currentAccessToken == null) {
+                    Log.d("FACEBOOK","Usuario cerro sesion");
+                }
+            }
+        };
+
+        accessTokenTracker.startTracking();
+    }
+
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        callbackManager.onActivityResult(requestCode, resultCode, data);
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        accessTokenTracker.stopTracking();
+    }
+
+    //-----------------------Funciones Login Facebook -------------------------------
+    ///------------------------------------------------------------------------------
+    public boolean isLoggedIn() {
+        accessToken = AccessToken.getCurrentAccessToken();
+        return (accessToken != null) && (!accessToken.isExpired());
+    }
+
+    public void readUserInfoFacebook(){
+        if(isLoggedIn()) {
+            GraphRequest request = GraphRequest.newMeRequest(accessToken,
+                    new GraphRequest.GraphJSONObjectCallback() {
+                        @Override
+                        public void onCompleted(JSONObject object, GraphResponse response) {
+                            getUserFromFacebook(object);
+                        }
+                    });
+
+            Bundle parameters = new Bundle();
+            parameters.putString("fields", "id,name,link,gender,picture.type(large),email");
+            request.setParameters(parameters);
+            request.executeAsync();
+        }
+    }
+    //----------------------Validacion de datos Usuario---------------------
+    //----------------------------------------------------------------------
+    private void getUserFromFacebook(JSONObject object){
+        if(object!=null) {
+            try {
+                String id = object.getString("id");
+                String nombre = object.getString("name");
+                String email = "";
+                try {
+                    if (object.get("email") != null) email = object.getString("email");
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+                String urlPicture = object.getJSONObject("picture").getJSONObject("data").getString("url");
+
+                Log.d("FACEBOOK USER","id: "+id);
+                Log.d("FACEBOOK USER","nombre: "+nombre);
+                Log.d("FACEBOOK USER","email: "+email);
+                Log.d("FACEBOOK USER","urlPicture: "+urlPicture);
+
+                Toast.makeText(getApplicationContext(), "Login Exitoso", Toast.LENGTH_SHORT).show();
+                if(isValidEmail(email)) Log.d("FACEBOOK","Email Valido");
+                else Log.d("FACEBOOK","Email no valido");
+
+            }catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private boolean isValidEmail(String email){
+        return !TextUtils.isEmpty(email) && Patterns.EMAIL_ADDRESS.matcher(email).matches();
+    }
+}

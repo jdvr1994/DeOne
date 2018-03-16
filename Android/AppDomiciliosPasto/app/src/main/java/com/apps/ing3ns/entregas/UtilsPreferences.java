@@ -23,6 +23,8 @@ public class UtilsPreferences {
     public static final String KEY_CLIENT = "client";
     public static final String KEY_LOCATION = "location";
     private static final String KEY_DELIVERIES_UPDATED = "deliveries_updated";
+    private static final String KEY_DELIVERY_ID = "last_delivery_id";
+    private static final String KEY_DELIVERIES_NUMBER = "last_deliveries_number";
 
     public static boolean isFirstTime(SharedPreferences preferences) {
         return preferences.getBoolean(KEY_FIRSTTIME, false);
@@ -129,7 +131,7 @@ public class UtilsPreferences {
      * @param context el {@link Context} para recuperar las SharedPreferences.
      */
     public static String getLastDeliveryId(Context context) {
-        return PreferenceManager.getDefaultSharedPreferences(context).getString(KEY_DELIVERIES_UPDATED, null);
+        return PreferenceManager.getDefaultSharedPreferences(context).getString(KEY_DELIVERY_ID, null);
     }
 
     /**
@@ -139,7 +141,7 @@ public class UtilsPreferences {
     public static void setLastDeliveryId(Context context, String deliveryId) {
         PreferenceManager.getDefaultSharedPreferences(context)
                 .edit()
-                .putString(KEY_DELIVERIES_UPDATED, deliveryId)
+                .putString(KEY_DELIVERY_ID, deliveryId)
                 .apply();
     }
 
@@ -148,7 +150,7 @@ public class UtilsPreferences {
      * @param context el {@link Context} para recuperar las SharedPreferences.
      */
     public static int getNumberLastDeliveries(Context context) {
-        return PreferenceManager.getDefaultSharedPreferences(context).getInt(KEY_DELIVERIES_UPDATED, 0);
+        return PreferenceManager.getDefaultSharedPreferences(context).getInt(KEY_DELIVERIES_NUMBER, 0);
     }
 
     /**
@@ -158,7 +160,7 @@ public class UtilsPreferences {
     public static void setNumberLastDeliveries(Context context, int numDeliveries) {
         PreferenceManager.getDefaultSharedPreferences(context)
                 .edit()
-                .putInt(KEY_DELIVERIES_UPDATED, numDeliveries)
+                .putInt(KEY_DELIVERIES_NUMBER, numDeliveries)
                 .apply();
     }
 

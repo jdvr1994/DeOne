@@ -231,6 +231,15 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
                 textCargando.setText("Finalizando Pedido");
                 cargando.setVisibility(View.VISIBLE);
 
+
+                //PROVISIONAL
+                cargando.setVisibility(View.INVISIBLE);
+                UtilsPreferences.removeDelivery(preferences);
+                UtilsPreferences.removeClient(preferences);
+                gpsServiceAction(Constants.ACTION.STOP_FOREGROUND);
+                listener.setOnChangeToDomiciliario(Utils.KEY_MAP_FRAGMENT, R.id.btn_ok);
+
+
                 // Llamo al metodo DeliveryFinished del API Rest , le envio una id_domiciliario y una id_delivery
                 // Este metodo hara lo siguiente:::
                 // Actualizo el estado del Delivery a 3
@@ -271,10 +280,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
             }
         });
 
-        // Comienzo la rutina para peticion de PERMISOS y Acceso a la UBICACION
-        if (!checkPermissions()) {
-            requestPermissions();
-        }
+        if (!checkPermissions()) requestPermissions();
         buildGoogleApiClient();
     }
 
@@ -468,10 +474,9 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         mGoogleApiClient = new GoogleApiClient.Builder(getContext())
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
-                .enableAutoManage(getActivity(), this)
+                .enableAutoManage(getActivity(),1, this)
                 .addApi(LocationServices.API)
                 .build();
-
         mGoogleApiClient.connect();
     }
 
@@ -497,14 +502,17 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
             }
         });
 
-        if (ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
 
         if(!UtilsPreferences.getStateLocationUpdates(getActivity())) {
             mService.requestLocationUpdates();
         }
-        mService.setModeEntregando();
+
+        if(mService!=null) {
+            mService.setModeEntregando();
+        }
     }
 
     /**

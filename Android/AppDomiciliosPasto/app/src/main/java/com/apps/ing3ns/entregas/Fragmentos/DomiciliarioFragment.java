@@ -63,6 +63,7 @@ import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -71,7 +72,7 @@ import java.util.List;
  * Created by JuanDa on 14/02/2018.
  */
 
-public class DomiciliarioFragment extends Fragment implements DeliveryListener, ClientListener, DomiciliarioListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, SharedPreferences.OnSharedPreferenceChangeListener {
+public class DomiciliarioFragment extends Fragment implements DeliveryListener, ClientListener, DomiciliarioListener, SharedPreferences.OnSharedPreferenceChangeListener {
 
     //######################################################################################
     //---------------- NUEVO SERVICIO DE UBICACION BACKGROUND/FOREGROUND -------------------
@@ -81,14 +82,6 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
      */
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final int REQUEST_PERMISSIONS_REQUEST_CODE = 34;
-
-    /**
-     * Variables usadas para activar el GPS del dispositivo por medio de @GoogleApiClient.
-     */
-    final static int REQUEST_LOCATION = 198;
-    private GoogleApiClient mGoogleApiClient;
-    private PendingResult<LocationSettingsResult> result;
-    private Status statusGlobal;
 
     /**
      * Variables usadas para administrar la dinamica de Vinculacion y Conexion del Servicio.
@@ -221,11 +214,7 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
         });
 
         // Comienzo la rutina para peticion de PERMISOS y Acceso a la UBICACION
-        if (!checkPermissions()) {
-            requestPermissions();
-        }
-
-        buildGoogleApiClient();
+        if (!checkPermissions()) requestPermissions();
     }
 
     //######################################################################################
@@ -280,11 +269,9 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
 
     @Override
     public void onDetach() {
-        super.onDetach();
+        Log.i(TAG,"Fragment Domiciliario Detach");
         listener = null;
-        if (mGoogleApiClient.isConnected()) {
-            mGoogleApiClient.disconnect();
-        }
+        super.onDetach();
     }
 
     @Override
@@ -362,9 +349,7 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
                 // receive empty arrays.
                 Log.i(TAG, "User interaction was cancelled.");
             } else if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission was granted. Kick off the process of building and connecting
-                // GoogleApiClient.
-                buildGoogleApiClient();
+
             } else {
                 // Permission denied.
 
@@ -400,116 +385,6 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
         }
     }
 
-    //######################################################################################
-    //--------------------------- GOOGLE API CLIENT LOCATION ------------------------------
-    //######################################################################################
-    private void buildGoogleApiClient() {
-        if (mGoogleApiClient != null) {
-            return;
-        }
-
-        mGoogleApiClient = new GoogleApiClient.Builder(getContext())
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .enableAutoManage(getActivity(), this)
-                .addApi(LocationServices.API)
-                .build();
-
-        mGoogleApiClient.connect();
-    }
-
-    /**
-     * Callback recibido cuando el resultado de una conexion es completada (@GoogleApiClient).
-     */
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
-        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(new LocationRequest());
-        builder.setAlwaysShow(true);
-
-        result = LocationServices.SettingsApi.checkLocationSettings(mGoogleApiClient, builder.build());
-        result.setResultCallback(new ResultCallback<LocationSettingsResult>() {
-            @Override
-            public void onResult(LocationSettingsResult result) {
-                final Status status = result.getStatus();
-                statusGlobal = status;
-                if (status.getStatusCode()==LocationSettingsStatusCodes.RESOLUTION_REQUIRED) {
-                    try {
-                        status.startResolutionForResult(getActivity(), REQUEST_LOCATION);
-                    } catch (IntentSender.SendIntentException e) {}
-                }
-            }
-        });
-
-        if (ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return;
-        }
-
-        if(!UtilsPreferences.getStateLocationUpdates(getActivity())) {
-            mService.requestLocationUpdates();
-        }
-        mService.setModeSearch();
-    }
-
-    /**
-     * Callback recibido cuando una conexion fue suspendida (@GoogleApiClient).
-     */
-    @Override
-    public void onConnectionSuspended(int i) {
-        final String text = "Connection suspended";
-        Log.w(TAG, text + ": Error code: " + i);
-        showSnackbar("Connection suspended");
-    }
-
-    /**
-     * Callback recibido cuando una conexion fue fallida  (@GoogleApiClient).
-     */
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-        final String text = "Exception while connecting to Google Play services";
-        Log.w(TAG, text + ": " + connectionResult.getErrorMessage());
-        showSnackbar(text);
-    }
-
-    /**
-     * Callback recibido cuando el resultado de una Resolucion es completada (@GoogleApiClient Connection).
-     */
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        //--------------------------GOOGLE API CLIENT --------------------------
-        //final LocationSettingsStates states = LocationSettingsStates.fromIntent(data);
-        switch (requestCode) {
-            case REQUEST_LOCATION:
-                switch (resultCode) {
-                    case Activity.RESULT_OK: {
-                        buildGoogleApiClient();
-                        break;
-                    }
-                    case Activity.RESULT_CANCELED: {
-                        try {
-                            statusGlobal.startResolutionForResult(getActivity(), REQUEST_LOCATION);
-                        } catch (IntentSender.SendIntentException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    default: {
-                        break;
-                    }
-                }
-                break;
-        }
-    }
-
-
-    private void showSnackbar(final String text) {
-        View container = getView().findViewById(R.id.domiciliario_fragment);
-        if (container != null) {
-            Snackbar.make(container, text, Snackbar.LENGTH_LONG).show();
-        }
-    }
-
-
     /**
      * Receiver for broadcasts sent by {@link ForegroundLocationService}.
      */
@@ -523,7 +398,10 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
 
             String nearbyDeliveriesJson = intent.getStringExtra(ForegroundLocationService.EXTRA_NEARBY_DELIVERIES);
             if(nearbyDeliveriesJson!=null){
-                Toast.makeText(getActivity(), "Pedidos Cercanos Recibidos", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getActivity(), "Pedidos Cercanos Actualizados", Toast.LENGTH_SHORT).show();
+                List<Delivery> nearbyDeliveries =  gson.fromJson(nearbyDeliveriesJson,new TypeToken<List<Delivery>>(){}.getType());
+                adapter.setDeliveries(nearbyDeliveries);
+                adapter.notifyDataSetChanged();
             }
         }
     }

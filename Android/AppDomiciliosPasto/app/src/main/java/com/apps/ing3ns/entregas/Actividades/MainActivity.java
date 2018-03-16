@@ -1,32 +1,29 @@
 package com.apps.ing3ns.entregas.Actividades;
 
-import android.content.BroadcastReceiver;
+import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
+import android.content.IntentSender;
 import android.content.SharedPreferences;
-import android.graphics.Rect;
+import android.content.pm.PackageManager;
 import android.os.Build;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.support.design.widget.Snackbar;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
-import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.transition.ChangeBounds;
 import android.transition.Explode;
 import android.transition.Fade;
-import android.transition.Slide;
-import android.transition.Transition;
-import android.transition.TransitionInflater;
 import android.transition.TransitionSet;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewAnimationUtils;
-import android.view.animation.Animation;
 import android.widget.Toast;
 
 import com.apps.ing3ns.entregas.API.APIControllers.Domiciliario.DomiciliarioController;
@@ -39,32 +36,58 @@ import com.apps.ing3ns.entregas.Menu.MenuController;
 import com.apps.ing3ns.entregas.Menu.MenuListener;
 import com.apps.ing3ns.entregas.Modelos.Domiciliario;
 import com.apps.ing3ns.entregas.R;
-import com.apps.ing3ns.entregas.Services.GpsServices.Constants;
 import com.apps.ing3ns.entregas.Services.GpsServices.ForegroundLocationService;
-import com.apps.ing3ns.entregas.Services.GpsServices.ForegroundService;
-import com.apps.ing3ns.entregas.Services.NotificationServices.MyFirebaseMessagingService;
 import com.apps.ing3ns.entregas.Utils;
 import com.apps.ing3ns.entregas.UtilsPreferences;
-import com.google.firebase.messaging.FirebaseMessagingService;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.LocationSettingsRequest;
+import com.google.android.gms.location.LocationSettingsResult;
+import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-import java.util.HashMap;
+public class MainActivity extends AppCompatActivity implements MenuListener, DomiciliarioListener, FragmentsListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
-public class MainActivity extends AppCompatActivity implements MenuListener, DomiciliarioListener, FragmentsListener {
+    private static final String TAG = MainActivity.class.getSimpleName();
 
+    /**
+     * Variables usadas para activar el GPS del dispositivo por medio de @GoogleApiClient.
+     */
+    final static int REQUEST_LOCATION = 198;
+    private GoogleApiClient mGoogleApiClient;
+    private PendingResult<LocationSettingsResult> result;
+    private Status statusGlobal;
+
+    /**
+     * Variables usadas para activar el Administrar los Fragments
+     */
     FragmentManager fragmentManager = getSupportFragmentManager();
     LoginFragment loginFragment = new LoginFragment();
     DomiciliarioFragment domiciliarioFragment = new DomiciliarioFragment();
     MapFragment mapFragment = new MapFragment();
 
+    //######################################################################################
+    //------------------------------ VARIABLES DE PROCESO ----------------------------------
+    //######################################################################################
+    /**
+     * Controladores de Menu y Domiciliario
+     */
+    MenuController menuController;
+    DomiciliarioController domiciliarioController;
+
+    /**
+     * Otras varibales de proceso.
+     */
     SharedPreferences prefs;
     Gson gson;
     Domiciliario domiciliario;
     String fragmentActive;
-    //------Menus----------
-    MenuController menuController;
-    DomiciliarioController domiciliarioController;
 
     //#########################################################################################################
     //----------------------------------------- CICLO DE VIDA ACTIVITY ----------------------------------------
@@ -91,15 +114,6 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
     @Override
     protected void onStop() {
         super.onStop();
-    }
-
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data){
-
-        Fragment frg = getSupportFragmentManager().findFragmentByTag(Utils.KEY_DOMICILIARIO_FRAGMENT);
-        if (frg != null) {
-            frg.onActivityResult(requestCode, resultCode, data);
-        }
     }
 
     //----------------------------PRESIONAR BOTON ATRAS --------------------------------
@@ -161,6 +175,108 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
         if(fragmentActive.contains(Utils.KEY_LOGIN_FRAGMENT)) setViewLoginFragment();
         else if(fragmentActive.contains(Utils.KEY_MAP_FRAGMENT)) setViewMapFragment();
         else setViewDomiciliarioFragment();
+    }
+
+    //######################################################################################
+    //--------------------------- GOOGLE API CLIENT LOCATION ------------------------------
+    //######################################################################################
+    private void buildGoogleApiClient() {
+        Log.i(TAG, "Inicio buildGoogleApliClient");
+        if (mGoogleApiClient != null) {
+            return;
+        }
+
+        Log.i(TAG, "Creando nuevo API CLIENT");
+        mGoogleApiClient = new GoogleApiClient.Builder(this)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(LocationServices.API)
+                .build();
+
+        Log.i(TAG, "Conectando el google Api client");
+        mGoogleApiClient.connect();
+    }
+
+    /**
+     * Callback recibido cuando el resultado de una conexion es completada (@GoogleApiClient).
+     */
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(new LocationRequest());
+        builder.setAlwaysShow(true);
+
+        result = LocationServices.SettingsApi.checkLocationSettings(mGoogleApiClient, builder.build());
+        result.setResultCallback(new ResultCallback<LocationSettingsResult>() {
+            @Override
+            public void onResult(LocationSettingsResult result) {
+                final Status status = result.getStatus();
+                statusGlobal = status;
+                if (status.getStatusCode()== LocationSettingsStatusCodes.RESOLUTION_REQUIRED) {
+                    try {
+                        status.startResolutionForResult(getParent(), REQUEST_LOCATION);
+                    } catch (IntentSender.SendIntentException e) {}
+                }
+            }
+        });
+    }
+
+    /**
+     * Callback recibido cuando una conexion fue suspendida (@GoogleApiClient).
+     */
+    @Override
+    public void onConnectionSuspended(int i) {
+        final String text = "Connection suspended";
+        Log.w(TAG, text + ": Error code: " + i);
+        showSnackbar("Connection suspended");
+    }
+
+    /**
+     * Callback recibido cuando una conexion fue fallida  (@GoogleApiClient).
+     */
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        final String text = "Exception while connecting to Google Play services";
+        Log.w(TAG, text + ": " + connectionResult.getErrorMessage());
+        showSnackbar(text);
+    }
+
+    /**
+     * Callback recibido cuando el resultado de una Resolucion es completada (@GoogleApiClient Connection).
+     */
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        //--------------------------GOOGLE API CLIENT --------------------------
+        //final LocationSettingsStates states = LocationSettingsStates.fromIntent(data);
+        switch (requestCode) {
+            case REQUEST_LOCATION:
+                switch (resultCode) {
+                    case Activity.RESULT_OK: {
+                        buildGoogleApiClient();
+                        break;
+                    }
+                    case Activity.RESULT_CANCELED: {
+                        try {
+                            statusGlobal.startResolutionForResult(this, REQUEST_LOCATION);
+                        } catch (IntentSender.SendIntentException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    default: {
+                        break;
+                    }
+                }
+                break;
+        }
+    }
+
+
+    private void showSnackbar(final String text) {
+        View container = findViewById(R.id.domiciliario_fragment);
+        if (container != null) {
+            Snackbar.make(container, text, Snackbar.LENGTH_LONG).show();
+        }
     }
 
     //#########################################################################################################

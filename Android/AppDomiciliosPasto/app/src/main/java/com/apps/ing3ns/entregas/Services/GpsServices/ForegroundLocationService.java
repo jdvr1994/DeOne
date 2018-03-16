@@ -131,7 +131,6 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
     private Delivery delivery;
     List<Delivery> deliveriesActivos = new ArrayList<>();
     List<Delivery> nearbyDeliveries = new ArrayList<>();
-
     /**
      * SharedPreferences y otras variables.
      */
@@ -332,6 +331,8 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
         //Cargamos el Domiciliario y Delivery de las preferences
         domiciliario = gson.fromJson(UtilsPreferences.getDomiciliario(preferences), Domiciliario.class);
         delivery = gson.fromJson(UtilsPreferences.getDelivery(preferences), Delivery.class);
+        // Recuperamos los pedidos cercanos que tenemos hasta el momento
+        if(nearbyDeliveries.size()>0)getNearbyDeliveries();
         // Recuperamos todos los Deliveries en estado 0
         deliveryController.getDeliveriesCondition(Utils.getHashMapState(0));
     }
@@ -350,6 +351,13 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
      * Solicitamos una respuesta con los Pedidos Cercanos
      */
     public void getNearbyDeliveries(){
+        // Notificamos a todos los clientes por un broadcast sobre la nueva Ubicación
+        Intent intent = new Intent(ACTION_BROADCAST);
+        intent.putExtra(EXTRA_NEARBY_DELIVERIES, gson.toJson(nearbyDeliveries));
+        LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(intent);
+    }
+
+    public void getNearbyDeliveriesFirsTime(List<Delivery> nearbyDeliveries){
         // Notificamos a todos los clientes por un broadcast sobre la nueva Ubicación
         Intent intent = new Intent(ACTION_BROADCAST);
         intent.putExtra(EXTRA_NEARBY_DELIVERIES, gson.toJson(nearbyDeliveries));
@@ -478,11 +486,12 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
     }
 
     private void locationchangeBehavior(int deliveryProcess, Location location) {
-
+        Log.i(TAG, "Comportamiento al cambiar Ubicacion ");
         //######################################################################################
         //------------------------------- REALIZANDO DELIVERY ----------------------------------
         //######################################################################################
         if(deliveryProcess == Constants.ACTION.DELIVERY_PROCESS){
+            Log.i(TAG, "DELIVERY_PROCESS");
             domiciliario.setPosition(new Position(location.getLatitude(),location.getLongitude()));
             HashMap<String,String> map = new HashMap<>();
             map.put("position",gson.toJson(domiciliario.getPosition()));
@@ -506,10 +515,12 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
         //--------------------------- BUSCANDO DELIVERIES CERCANOS -----------------------------
         //######################################################################################
         if(deliveryProcess == Constants.ACTION.SEARCH_DELIVERY) {
+            Log.i(TAG, "SEARCH_DELIVERIES");
             // Compruebo cuales de estos delieries estan cerca del domiciliario
             nearbyDeliveries = Delivery.getNearbyDeliveries(deliveriesActivos, mLocation, 1.9);
 
             if(nearbyDeliveries.size()>0) {
+                Log.i(TAG, "HAY PEDIDOS CERCANOS");
                 // Compruebo que halla ocurrido un cambio en la lista de Nerby Deliveries
                 if(!Delivery.compareListDeliveries(nearbyDeliveries,lastDeliveryID,numLastDeliveries)) {
                     if(nearbyDeliveries.size()>numLastDeliveries) {
@@ -521,7 +532,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
                     lastDeliveryID = nearbyDeliveries.get(numLastDeliveries-1).get_id();
 
                     // Le enviamos los Pedidos Cercanos a los clientes vinculados (Fragments).
-                    if(serviceIsRunningInForeground(this)) getNearbyDeliveries();
+                    if(!serviceIsRunningInForeground(this))getNearbyDeliveries();
                 }
             }
         }
@@ -571,6 +582,8 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
     public void getDeliveriesConditionSuccessful(List<Delivery> deliveries) {
         //-------- Recibo todos los deliveries en estado 0------
         deliveriesActivos = deliveries;
+        List<Delivery> nearbyDeliveriesFirstTime = Delivery.getNearbyDeliveries(deliveriesActivos, mLocation, 1.9);
+        if(nearbyDeliveries.size()==0)getNearbyDeliveriesFirsTime(nearbyDeliveriesFirstTime);
     }
 
     /**
