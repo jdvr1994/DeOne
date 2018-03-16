@@ -86,7 +86,7 @@ import java.util.List;
 /**
  * A simple {@link Fragment} subclass.
  */
-public class MapFragment extends Fragment implements MostrarRutaListener,OnMapReadyCallback, DeliveryListener, DomiciliarioListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, SharedPreferences.OnSharedPreferenceChangeListener {
+public class MapFragment extends Fragment implements MostrarRutaListener,OnMapReadyCallback, DeliveryListener, DomiciliarioListener, SharedPreferences.OnSharedPreferenceChangeListener {
     //######################################################################################
     //---------------- NUEVO SERVICIO DE UBICACION BACKGROUND/FOREGROUND -------------------
     //######################################################################################
@@ -95,14 +95,6 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
      */
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final int REQUEST_PERMISSIONS_REQUEST_CODE = 34;
-
-    /**
-     * Variables usadas para activar el GPS del dispositivo por medio de @GoogleApiClient.
-     */
-    final static int REQUEST_LOCATION = 198;
-    private GoogleApiClient mGoogleApiClient;
-    private PendingResult<LocationSettingsResult> result;
-    private Status statusGlobal;
 
     /**
      * Variables usadas para administrar la dinamica de Vinculacion y Conexion del Servicio.
@@ -117,13 +109,19 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
 
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
+            Log.i(TAG,"On Service Connected Fragment Maps");
             ForegroundLocationService.LocalBinder binder = (ForegroundLocationService.LocalBinder) service;
             mService = binder.getService();
             mBound = true;
+
+            // Comienzo la rutina para peticion de PERMISOS y Acceso a la UBICACION
+            if (!checkPermissions()) requestPermissions();
+            else initServiceLocationDeliveryMode();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
+            Log.i(TAG,"On Services Disconnected Fragment Maps");
             mService = null;
             mBound = false;
         }
@@ -184,7 +182,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         rootView = inflater.inflate(R.layout.fragment_map, container, false);
-
+        Log.i(TAG,"On CreateView Fragment Maps");
         myReceiver = new MyReceiver();
         // Inicializo los controladores de eventos API REST
         deliveryController = new DeliveryController(this);
@@ -196,6 +194,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
 
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
+        Log.i(TAG,"On ViewCreated Fragment Maps");
         super.onViewCreated(view, savedInstanceState);
         bindUI(view);
 
@@ -279,9 +278,14 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
 
             }
         });
+        Log.i(TAG,"On ViewCreated2 Fragment Maps");
+    }
 
-        if (!checkPermissions()) requestPermissions();
-        buildGoogleApiClient();
+    private void initServiceLocationDeliveryMode(){
+        if(mBound) {
+            if (!UtilsPreferences.getStateLocationUpdates(getActivity())) mService.requestLocationUpdates();
+            mService.setModeEntregando();
+        }
     }
 
     //######################################################################################
@@ -291,6 +295,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
     @Override
     public void onStart() {
         super.onStart();
+        Log.i(TAG,"On Start Fragment Maps");
         PreferenceManager.getDefaultSharedPreferences(getActivity()).registerOnSharedPreferenceChangeListener(this);
 
         // Se vincula con el Servicio. Si el servicio se encuentra en modo FOREGROUND,
@@ -301,6 +306,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
 
     @Override
     public void onStop() {
+        Log.i(TAG,"On Stop Fragment Maps");
         if (mBound) {
             // Se vincula con el Servicio. Si el servicio se encuentra en modo BACKGROUND,
             // esta señal indica al Servicio que el Fragment deja de estar en Primer Plano y que
@@ -315,11 +321,13 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
     @Override
     public void onResume() {
         super.onResume();
+        Log.i(TAG,"On Resume Fragment Maps");
         LocalBroadcastManager.getInstance(getActivity()).registerReceiver(myReceiver, new IntentFilter(ForegroundLocationService.ACTION_BROADCAST));
     }
 
     @Override
     public void onPause() {
+        Log.i(TAG,"On Pause Fragment Maps");
         LocalBroadcastManager.getInstance(getActivity()).unregisterReceiver(myReceiver);
         super.onPause();
     }
@@ -327,6 +335,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
+        Log.i(TAG,"On Atach Fragment Maps");
         try {
             listener = (FragmentsListener) getActivity();
         } catch (ClassCastException e) {
@@ -336,11 +345,9 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
 
     @Override
     public void onDetach() {
-        super.onDetach();
+        Log.i(TAG,"On Detach Fragment Maps");
         listener = null;
-        if (mGoogleApiClient.isConnected()) {
-            mGoogleApiClient.disconnect();
-        }
+        super.onDetach();
     }
 
     @Override
@@ -426,8 +433,8 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
                 Log.i(TAG, "User interaction was cancelled.");
             } else if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Permission was granted. Kick off the process of building and connecting
-                // GoogleApiClient.
-                buildGoogleApiClient();
+                Log.i(TAG, "Permisos Garantizados Fragment Map");
+                initServiceLocationDeliveryMode();
             } else {
                 // Permission denied.
 
@@ -460,117 +467,6 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
                         })
                         .show();
             }
-        }
-    }
-
-    //######################################################################################
-    //--------------------------- GOOGLE API CLIENT LOCATION ------------------------------
-    //######################################################################################
-    private void buildGoogleApiClient() {
-        if (mGoogleApiClient != null) {
-            return;
-        }
-
-        mGoogleApiClient = new GoogleApiClient.Builder(getContext())
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .enableAutoManage(getActivity(),1, this)
-                .addApi(LocationServices.API)
-                .build();
-        mGoogleApiClient.connect();
-    }
-
-    /**
-     * Callback recibido cuando el resultado de una conexion es completada (@GoogleApiClient).
-     */
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
-        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(new LocationRequest());
-        builder.setAlwaysShow(true);
-
-        result = LocationServices.SettingsApi.checkLocationSettings(mGoogleApiClient, builder.build());
-        result.setResultCallback(new ResultCallback<LocationSettingsResult>() {
-            @Override
-            public void onResult(LocationSettingsResult result) {
-                final Status status = result.getStatus();
-                statusGlobal = status;
-                if (status.getStatusCode()== LocationSettingsStatusCodes.RESOLUTION_REQUIRED) {
-                    try {
-                        status.startResolutionForResult(getActivity(), REQUEST_LOCATION);
-                    } catch (IntentSender.SendIntentException e) {}
-                }
-            }
-        });
-
-        if (ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return;
-        }
-
-        if(!UtilsPreferences.getStateLocationUpdates(getActivity())) {
-            mService.requestLocationUpdates();
-        }
-
-        if(mService!=null) {
-            mService.setModeEntregando();
-        }
-    }
-
-    /**
-     * Callback recibido cuando una conexion fue suspendida (@GoogleApiClient).
-     */
-    @Override
-    public void onConnectionSuspended(int i) {
-        final String text = "Connection suspended";
-        Log.w(TAG, text + ": Error code: " + i);
-        showSnackbar("Connection suspended");
-    }
-
-    /**
-     * Callback recibido cuando una conexion fue fallida  (@GoogleApiClient).
-     */
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-        final String text = "Exception while connecting to Google Play services";
-        Log.w(TAG, text + ": " + connectionResult.getErrorMessage());
-        showSnackbar(text);
-    }
-
-    /**
-     * Callback recibido cuando el resultado de una Resolucion es completada (@GoogleApiClient Connection).
-     */
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        //--------------------------GOOGLE API CLIENT --------------------------
-        //final LocationSettingsStates states = LocationSettingsStates.fromIntent(data);
-        switch (requestCode) {
-            case REQUEST_LOCATION:
-                switch (resultCode) {
-                    case Activity.RESULT_OK: {
-                        buildGoogleApiClient();
-                        break;
-                    }
-                    case Activity.RESULT_CANCELED: {
-                        try {
-                            statusGlobal.startResolutionForResult(getActivity(), REQUEST_LOCATION);
-                        } catch (IntentSender.SendIntentException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    default: {
-                        break;
-                    }
-                }
-                break;
-        }
-    }
-
-
-    private void showSnackbar(final String text) {
-        View container = getView().findViewById(R.id.domiciliario_fragment);
-        if (container != null) {
-            Snackbar.make(container, text, Snackbar.LENGTH_LONG).show();
         }
     }
 

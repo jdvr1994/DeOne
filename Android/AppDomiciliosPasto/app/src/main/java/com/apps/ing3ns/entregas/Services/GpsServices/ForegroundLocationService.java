@@ -582,6 +582,12 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
     public void getDeliveriesConditionSuccessful(List<Delivery> deliveries) {
         //-------- Recibo todos los deliveries en estado 0------
         deliveriesActivos = deliveries;
+        if(mLocation==null)mLocation = gson.fromJson(UtilsPreferences.getLastLocation(preferences),Location.class);
+        if(mLocation==null){
+            mLocation = new Location("nueva");
+            mLocation.setLatitude(0);
+            mLocation.setLongitude(0);
+        }
         List<Delivery> nearbyDeliveriesFirstTime = Delivery.getNearbyDeliveries(deliveriesActivos, mLocation, 1.9);
         if(nearbyDeliveries.size()==0)getNearbyDeliveriesFirsTime(nearbyDeliveriesFirstTime);
     }

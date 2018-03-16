@@ -96,13 +96,19 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
 
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
+            Log.i(TAG,"On Service Connected Fragment Domiciliario");
             ForegroundLocationService.LocalBinder binder = (ForegroundLocationService.LocalBinder) service;
             mService = binder.getService();
             mBound = true;
+
+            // Comienzo la rutina para peticion de PERMISOS y Acceso a la UBICACION
+            if (!checkPermissions()) requestPermissions();
+            else initServiceLocationSearchMode();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
+            Log.i(TAG,"On Services Disconnected Fragment Domiciliario");
             mService = null;
             mBound = false;
         }
@@ -153,6 +159,7 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_domiciliario, container, false);
+        Log.i(TAG,"On CreateView Fragment Domiciliario");
         myReceiver = new MyReceiver();
         // Inicializo los controladores de eventos API REST
         deliveryController = new DeliveryController(this);
@@ -164,6 +171,7 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
 
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
+        Log.i(TAG,"On View Created Fragment Domiciliario");
         // Rescato informacion del domiciliario atravez de las SharedPreferences y la VISUALIZO.
         preferences = getActivity().getSharedPreferences("Preferences", Context.MODE_PRIVATE);
         domiciliario = gson.fromJson(UtilsPreferences.getDomiciliario(preferences),Domiciliario.class);
@@ -213,8 +221,14 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
             }
         });
 
-        // Comienzo la rutina para peticion de PERMISOS y Acceso a la UBICACION
-        if (!checkPermissions()) requestPermissions();
+        Log.i(TAG,"On ViewCreated 2 Fragment Domiciliario");
+    }
+
+    private void initServiceLocationSearchMode(){
+        if(mBound) {
+            if (!UtilsPreferences.getStateLocationUpdates(getActivity())) mService.requestLocationUpdates();
+            mService.setModeSearch();
+        }
     }
 
     //######################################################################################
@@ -224,6 +238,7 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     @Override
     public void onStart() {
         super.onStart();
+        Log.i(TAG,"On Start Fragment Domiciliario");
         PreferenceManager.getDefaultSharedPreferences(getActivity()).registerOnSharedPreferenceChangeListener(this);
 
         // Se vincula con el Servicio. Si el servicio se encuentra en modo FOREGROUND,
@@ -234,6 +249,7 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
 
     @Override
     public void onStop() {
+        Log.i(TAG,"On Stop Fragment Domiciliario");
         if (mBound) {
             // Se vincula con el Servicio. Si el servicio se encuentra en modo BACKGROUND,
             // esta señal indica al Servicio que el Fragment deja de estar en Primer Plano y que
@@ -248,11 +264,13 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     @Override
     public void onResume() {
         super.onResume();
+        Log.i(TAG,"On Resume Fragment Domiciliario");
         LocalBroadcastManager.getInstance(getActivity()).registerReceiver(myReceiver, new IntentFilter(ForegroundLocationService.ACTION_BROADCAST));
     }
 
     @Override
     public void onPause() {
+        Log.i(TAG,"On Pause Fragment Domiciliario");
         LocalBroadcastManager.getInstance(getActivity()).unregisterReceiver(myReceiver);
         super.onPause();
     }
@@ -260,6 +278,7 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
+        Log.i(TAG,"On Attach Fragment Domiciliario");
         try {
             listener = (FragmentsListener) getActivity();
         } catch (ClassCastException e) {
@@ -349,7 +368,8 @@ public class DomiciliarioFragment extends Fragment implements DeliveryListener, 
                 // receive empty arrays.
                 Log.i(TAG, "User interaction was cancelled.");
             } else if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-
+                Log.i(TAG, "Permisos Garantizados Fragment Domiciliario");
+                initServiceLocationSearchMode();
             } else {
                 // Permission denied.
 

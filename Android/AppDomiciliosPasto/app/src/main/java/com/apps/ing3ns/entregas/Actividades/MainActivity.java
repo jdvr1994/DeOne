@@ -52,7 +52,7 @@ import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-public class MainActivity extends AppCompatActivity implements MenuListener, DomiciliarioListener, FragmentsListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
+public class MainActivity extends AppCompatActivity implements MenuListener, DomiciliarioListener, FragmentsListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, ResultCallback<LocationSettingsResult> {
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
@@ -109,11 +109,17 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
     @Override
     protected void onStart() {
         super.onStart();
+        if(mGoogleApiClient!=null) {
+            if(!mGoogleApiClient.isConnected()) mGoogleApiClient.connect();
+        }
+
+        buildGoogleApiClient();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
+        mGoogleApiClient.disconnect();
     }
 
     //----------------------------PRESIONAR BOTON ATRAS --------------------------------
@@ -202,22 +208,12 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
      */
     @Override
     public void onConnected(@Nullable Bundle bundle) {
-        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(new LocationRequest());
+        Log.i(TAG,"onConnected Google Api Client");
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(new LocationRequest().setPriority(LocationRequest.PRIORITY_LOW_POWER));
         builder.setAlwaysShow(true);
 
         result = LocationServices.SettingsApi.checkLocationSettings(mGoogleApiClient, builder.build());
-        result.setResultCallback(new ResultCallback<LocationSettingsResult>() {
-            @Override
-            public void onResult(LocationSettingsResult result) {
-                final Status status = result.getStatus();
-                statusGlobal = status;
-                if (status.getStatusCode()== LocationSettingsStatusCodes.RESOLUTION_REQUIRED) {
-                    try {
-                        status.startResolutionForResult(getParent(), REQUEST_LOCATION);
-                    } catch (IntentSender.SendIntentException e) {}
-                }
-            }
-        });
+        result.setResultCallback(this);
     }
 
     /**
@@ -273,7 +269,7 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
 
 
     private void showSnackbar(final String text) {
-        View container = findViewById(R.id.domiciliario_fragment);
+        View container = findViewById(R.id.main_content);
         if (container != null) {
             Snackbar.make(container, text, Snackbar.LENGTH_LONG).show();
         }
@@ -415,6 +411,19 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
     public void setOnChangeToMap(String tagPrevFragment, int idObjectUI) {
         if(domiciliarioFragment.isVisible()) performTransition(domiciliarioFragment,Utils.KEY_MAP_FRAGMENT,mapFragment,idObjectUI);
         menuController.setMenuLateralLogOut();
+    }
+
+    @Override
+    public void onResult(@NonNull LocationSettingsResult result) {
+        final Status status = result.getStatus();
+        statusGlobal = status;
+        if (status.getStatusCode()== LocationSettingsStatusCodes.RESOLUTION_REQUIRED) {
+            try {
+                status.startResolutionForResult(this, REQUEST_LOCATION);
+            } catch (IntentSender.SendIntentException e) {}
+        }else{
+            Log.i(TAG,"Google API Client Conexion Exitosa");
+        }
     }
 }
 
