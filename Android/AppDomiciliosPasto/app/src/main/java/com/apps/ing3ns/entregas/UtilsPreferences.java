@@ -25,6 +25,7 @@ public class UtilsPreferences {
     private static final String KEY_DELIVERIES_UPDATED = "deliveries_updated";
     private static final String KEY_DELIVERY_ID = "last_delivery_id";
     private static final String KEY_DELIVERIES_NUMBER = "last_deliveries_number";
+    public static final String KEY_DOMICILIARIO_FREE = "domiciliario_free";
 
     public static boolean isFirstTime(SharedPreferences preferences) {
         return preferences.getBoolean(KEY_FIRSTTIME, false);
@@ -201,6 +202,26 @@ public class UtilsPreferences {
         PreferenceManager.getDefaultSharedPreferences(context)
                 .edit()
                 .putBoolean(KEY_STATE_LOCATION_UPDATES, requestingLocationUpdates)
+                .apply();
+    }
+
+
+    /**
+     * Retorna true si esta activado el servicio de actualizacion de localizacion, de otra forma retorna false.
+     * @param context el {@link Context} para recuperar las SharedPreferences.
+     */
+    public static boolean getStateDomiciliarioFree(Context context) {
+        return PreferenceManager.getDefaultSharedPreferences(context).getBoolean(KEY_DOMICILIARIO_FREE, false);
+    }
+
+    /**
+     * Almacena el estado del servicio de actualizacion de localizacion en SharedPreferences.
+     * @param free el estado del servicio de actualizacion de localizacion.
+     */
+    public static void setStateDomiciliarioFree(Context context, boolean free) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putBoolean(KEY_DOMICILIARIO_FREE, free)
                 .apply();
     }
 }

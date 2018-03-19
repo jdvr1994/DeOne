@@ -129,4 +129,8 @@ public class MenuController {
         drawerLayout.closeDrawers();
     }
 
+    public void setInicioActive(){
+        navigationView.getMenu().findItem(R.id.menu_home).setChecked(true);
+    }
+
 }

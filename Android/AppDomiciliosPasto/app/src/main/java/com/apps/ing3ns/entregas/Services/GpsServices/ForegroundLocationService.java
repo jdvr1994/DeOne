@@ -25,6 +25,7 @@ import android.support.annotation.NonNull;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.apps.ing3ns.entregas.API.APIControllers.Delivery.DeliveryController;
 import com.apps.ing3ns.entregas.API.APIControllers.Delivery.DeliveryListener;
@@ -88,6 +89,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
     public static final String ACTION_BROADCAST = PACKAGE_NAME + ".broadcast";
     public static final String EXTRA_LOCATION = PACKAGE_NAME + ".location";
     public static final String EXTRA_NEARBY_DELIVERIES = PACKAGE_NAME + ".nearby_deliveries";
+    public static final String EXTRA_DELIVERY_ACCEPTED = PACKAGE_NAME + ".delivery_accepted";
     public static final String EXTRA_STARTED_FROM_NOTIFICATION = PACKAGE_NAME + ".started_from_notification";
     private static final String NEW_DELIVERY_CHANNEL = "new_delivery_chanel";
 
@@ -96,9 +98,16 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
     /**
      * Configuracion de tiempo de actualizacion del servicio de Ubicación.
      */
-    private static final long UPDATE_INTERVAL_IN_MILLISECONDS = 10 * 1000;
+    private static final long UPDATE_INTERVAL_IN_MILLISECONDS = 5 * 1000;
     private static final long FASTEST_UPDATE_INTERVAL_IN_MILLISECONDS = UPDATE_INTERVAL_IN_MILLISECONDS / 2;
     private static final long MAX_WAIT_TIME_IN_MILLISECONDS = UPDATE_INTERVAL_IN_MILLISECONDS * 2;
+
+    /**
+     * Configuracion distancias Umbrales.
+     */
+    private static final double DISTANCE_DEFAULT = 1.9;
+    private static final double FULL_DISTANCE = 5.0;
+    private static final double TARGET_DISTANCE = 0.07;
 
     /**
      * Variables para administrar Servicio de Ubicación
@@ -142,24 +151,63 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
     private int numLastDeliveries = 0;
     private String lastDeliveryID = "withoutId";
 
+    /**
+     * Handler para actualizar posicion cada cierto tiempo (SEARCH MODE)
+     */
+    Handler handler;
+    Runnable runnableCode;
+    private static final int TIME_UPDATE_POSITION = 10*60*1000;
+    boolean positionUpdated = true;
+    boolean entregandoAlert = false;
+    /**
+     * Recivir notificaciones de pedidos nuevos o eliminados
+     */
     private BroadcastReceiver AddOrRemoveDeliveryReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             String type = intent.getExtras().getString(MyFirebaseMessagingService.KEY_TYPE);
             String deliveryJson = intent.getExtras().getString(MyFirebaseMessagingService.KEY_DELIVERY);
-            Delivery delivery = gson.fromJson(deliveryJson,Delivery.class);
+            Delivery newDelivery = gson.fromJson(deliveryJson,Delivery.class);
 
             switch (type) {
                 case MyFirebaseMessagingService.KEY_TYPE_ADD_DELIVERY:
                     Log.i(TAG,"Nuevo Delivery Añadido");
-                    deliveriesActivos.add(delivery);
+                    deliveriesActivos.add(newDelivery);
                     break;
 
                 case MyFirebaseMessagingService.KEY_TYPE_DELETE_DELIVERY:
                     Log.i(TAG,"Delivery Eliminado");
-                    Delivery.removeDelivery(deliveriesActivos, delivery.get_id());
+                    if(delivery!=null) {
+                        Log.i(TAG, "delivery: " + gson.toJson(delivery));
+                        Log.i(TAG, "New delivery: " + deliveryJson);
+
+                        //Si se acepta mi pedido desde otro domiciliario y las direcciones de Start son diferentes quiere decir que acepto mi pedido
+                        if(!newDelivery.getAddressStart().equals(delivery.getAddressStart())) {
+                            if (!newDelivery.getDomiciliario().equals(delivery.getDomiciliario())) {
+                                Log.i(TAG, "Han aceptado mi pedido");
+                                UtilsPreferences.setStateDomiciliarioFree(getApplicationContext(), !UtilsPreferences.getStateDomiciliarioFree(getApplicationContext()));
+                            }
+                        }
+                    }
+                    Delivery.removeDelivery(deliveriesActivos, newDelivery.get_id());
                     break;
             }
+
+            nearbyDeliveries = Delivery.getNearbyDeliveries(deliveriesActivos, mLocation, DISTANCE_DEFAULT);
+            if(nearbyDeliveries.size()>0) {
+                Log.i(TAG, "UN PEDIDO ACTUALIZADO");
+                // Compruebo que halla ocurrido un cambio en la lista de Nerby Deliveries
+                if(!Delivery.compareListDeliveries(nearbyDeliveries,lastDeliveryID,numLastDeliveries)) {
+                    if(nearbyDeliveries.size()>numLastDeliveries) showNotificationNewDelivery();
+
+                    // Asigno valores para numLastDeliveries y para lastDeliveryID
+                    numLastDeliveries = nearbyDeliveries.size();
+                    lastDeliveryID = nearbyDeliveries.get(numLastDeliveries-1).get_id();
+
+                    if(!serviceIsRunningInForeground(getApplicationContext()))getNearbyDeliveries();
+                }
+            }
+
         }
     };
 
@@ -180,6 +228,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
         // Inicializo los controladores de eventos API REST
         domiciliarioController = new DomiciliarioController(this);
         deliveryController = new DeliveryController(this);
+        handler = new Handler();
 
         numLastDeliveries = UtilsPreferences.getNumberLastDeliveries(this);
         lastDeliveryID = UtilsPreferences.getLastDeliveryId(this);
@@ -322,6 +371,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
     public void removeLocationUpdates() {
         Log.i(TAG, "Removiendo Servicios de Ubicación");
         try {
+            domiciliarioController.updateDomiciliario(domiciliario.get_id(),Utils.getHashMapState(Utils.DOMICILIARIO_INACTIVO));
             mFusedLocationClient.removeLocationUpdates(mLocationCallback);
             UtilsPreferences.setStateLocationUpdates(this, false);
             UtilsPreferences.setLastDeliveryId(this,lastDeliveryID);
@@ -352,6 +402,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
      */
     public void setModeEntregando() {
         Log.i(TAG, "Configurando Modo Entregando Delivery...");
+        entregandoAlert = false;
         //Cargamos el Domiciliario y Delivery de las preferences
         domiciliario = gson.fromJson(UtilsPreferences.getDomiciliario(preferences), Domiciliario.class);
         delivery = gson.fromJson(UtilsPreferences.getDelivery(preferences), Delivery.class);
@@ -519,8 +570,8 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
             domiciliarioController.updateDomiciliario(domiciliario.get_id(),map);
 
             // Si se acerca mucho a la posicion de recogida el pedido pasa a estado 2
-            if(delivery.getState()!=Utils.DELIVERY_ENTREGANDO) {
-                if (Utils.distance(delivery.getPositionStart().getLat(), delivery.getPositionStart().getLng(), domiciliario.getPosition().getLat(), domiciliario.getPosition().getLng()) < 0.07) {
+            if(!entregandoAlert & delivery.getState()!=Utils.DELIVERY_ENTREGANDO) {
+                if (Utils.distance(delivery.getPositionStart().getLat(), delivery.getPositionStart().getLng(), domiciliario.getPosition().getLat(), domiciliario.getPosition().getLng()) < TARGET_DISTANCE) {
                     deliveryController.updateDelivery(delivery.get_id(), Utils.getHashMapState(Utils.DELIVERY_ENTREGANDO));
                 }
             }
@@ -540,8 +591,25 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
         //######################################################################################
         if(deliveryProcess == Constants.ACTION.SEARCH_DELIVERY) {
             Log.i(TAG, "SEARCH_DELIVERIES");
+
+            // Compartimos la ubicacion cada cierto tiempo
+            if(positionUpdated) {
+                runnableCode = new Runnable() {
+                    @Override
+                    public void run() {
+                        Log.i(TAG,"Actualizando Posicion domiciliario");
+                        HashMap<String, String> map = new HashMap<>();
+                        map.put("position", gson.toJson(domiciliario.getPosition()));
+                        domiciliarioController.updateDomiciliario(domiciliario.get_id(), map);
+                        positionUpdated = true;
+                    }
+                };
+                handler.postDelayed(runnableCode, TIME_UPDATE_POSITION);
+                positionUpdated = false;
+            }
+
             // Compruebo cuales de estos delieries estan cerca del domiciliario
-            nearbyDeliveries = Delivery.getNearbyDeliveries(deliveriesActivos, mLocation, 1.9);
+            nearbyDeliveries = Delivery.getNearbyDeliveries(deliveriesActivos, mLocation, DISTANCE_DEFAULT);
 
             if(nearbyDeliveries.size()>0) {
                 Log.i(TAG, "HAY PEDIDOS CERCANOS");
@@ -605,6 +673,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
 
     @Override
     public void updateDomiciliarioSuccessful(Domiciliario domiciliarioUpdated) {
+        Log.i(TAG,"Domiciliario Actualizado");
         if(domiciliarioUpdated.getState()!=domiciliario.getState()) UtilsPreferences.saveDomiciliario(preferences,gson.toJson(domiciliarioUpdated));
         domiciliario = domiciliarioUpdated;
     }
@@ -630,7 +699,8 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
 
     @Override
     public void updateDeliverySuccessful(Delivery delivery) {
-
+        UtilsPreferences.saveDelivery(preferences,gson.toJson(delivery));
+        entregandoAlert = true;
     }
 
     @Override
@@ -644,7 +714,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
             mLocation.setLatitude(0);
             mLocation.setLongitude(0);
         }
-        List<Delivery> nearbyDeliveriesFirstTime = Delivery.getNearbyDeliveries(deliveriesActivos, mLocation, 1.9);
+        List<Delivery> nearbyDeliveriesFirstTime = Delivery.getNearbyDeliveries(deliveriesActivos, mLocation, DISTANCE_DEFAULT);
         if(nearbyDeliveries.size()==0)getNearbyDeliveriesFirsTime(nearbyDeliveriesFirstTime);
 
         Log.i(TAG,"cercanos  anteriores: "+nearbyDeliveries.size() + "  cercanos actuales: "+nearbyDeliveriesFirstTime.size());
@@ -667,8 +737,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
      */
     @Override
     public void getErrorConnection(String nameEvent, Throwable t) {
-
+        Toast.makeText(getApplicationContext(), "No tienes conexion a internet", Toast.LENGTH_SHORT).show();
     }
-
 
 }

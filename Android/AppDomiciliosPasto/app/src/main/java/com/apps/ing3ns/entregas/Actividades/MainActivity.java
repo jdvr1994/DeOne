@@ -31,6 +31,7 @@ import com.apps.ing3ns.entregas.API.APIControllers.Domiciliario.DomiciliarioList
 import com.apps.ing3ns.entregas.Fragmentos.DomiciliarioFragment;
 import com.apps.ing3ns.entregas.Fragmentos.LoginFragment;
 import com.apps.ing3ns.entregas.Fragmentos.MapFragment;
+import com.apps.ing3ns.entregas.Fragmentos.ProfileFragment;
 import com.apps.ing3ns.entregas.Listeners.FragmentsListener;
 import com.apps.ing3ns.entregas.Menu.MenuController;
 import com.apps.ing3ns.entregas.Menu.MenuListener;
@@ -71,6 +72,7 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
     LoginFragment loginFragment = new LoginFragment();
     DomiciliarioFragment domiciliarioFragment = new DomiciliarioFragment();
     MapFragment mapFragment = new MapFragment();
+    ProfileFragment profileFragment = new ProfileFragment();
 
     //######################################################################################
     //------------------------------ VARIABLES DE PROCESO ----------------------------------
@@ -158,7 +160,12 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
                 else setViewDomiciliarioFragment();
                 break;
 
+            case R.id.menu_cambiar_pass:
+                setViewProfileFragment();
+                break;
+
             case R.id.menu_cerrar_sesion:
+                fragmentActive = Utils.KEY_LOGIN_FRAGMENT;
                 domiciliario = gson.fromJson(UtilsPreferences.getDomiciliario(prefs),Domiciliario.class);
                 domiciliarioController.updateDomiciliario(domiciliario.get_id(),Utils.getHashMapState(Utils.DOMICILIARIO_INACTIVO));
                 UtilsPreferences.removeToken(prefs);
@@ -167,6 +174,7 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
                 UtilsPreferences.removeNearbyDeliveries(prefs);
 
                 setViewLoginFragment();
+                menuController.setInicioActive();
 
                 // Terminamos el servicio para dejar de usar
                 Intent intent = new Intent(this, ForegroundLocationService.class);
@@ -318,6 +326,17 @@ public class MainActivity extends AppCompatActivity implements MenuListener, Dom
         }
     }
 
+    public void setViewProfileFragment(){
+        if(!profileFragment.isVisible()) {
+            fragmentManager
+                    .beginTransaction()
+                    .replace(R.id.main_content, profileFragment,Utils.KEY_PROFILE_FRAGMENT)
+                    .commit();
+
+            menuController.toolbarWithLogo();
+            menuController.setMenuLateralLogIn();
+        }
+    }
 
     //#########################################################################################################
     //------------------------------ ANIMACIONES DE TRANSICION PARA FRAGMENTS ---------------------------------

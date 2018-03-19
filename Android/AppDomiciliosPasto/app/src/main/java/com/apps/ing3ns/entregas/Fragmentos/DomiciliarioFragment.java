@@ -192,21 +192,7 @@ public class DomiciliarioFragment extends Fragment implements  ClientListener, D
         imgDomiciliario.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if(!UtilsPreferences.getStateLocationUpdates(getActivity())) mService.requestLocationUpdates();
-            }
-        });
-
-        puntosDomiciliario.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if(UtilsPreferences.getStateLocationUpdates(getActivity()))mService.removeLocationUpdates();
-            }
-        });
-
-        pedidosDomiciliario.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-
+                Toast.makeText(getContext(), "Eres un gran Domiciliario", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -424,7 +410,7 @@ public class DomiciliarioFragment extends Fragment implements  ClientListener, D
     public void setRecyclerViewPedidos(List<Delivery> deliveries){
         adapter.setDeliveries(deliveries);
         adapter.notifyDataSetChanged();
-        recyclerViewPedidos.smoothScrollToPosition(deliveries.size() - 1);
+        if(deliveries.size()>0) recyclerViewPedidos.smoothScrollToPosition(deliveries.size() - 1);
     }
 
     //######################################################################################

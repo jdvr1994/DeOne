@@ -44,4 +44,6 @@ public interface DeliveryService {
     @POST("delivery/finish")
     @FormUrlEncoded
     Call<ResponseBody> finishDelivery(@Field("domiciliario") String domiciliarioId, @Field("delivery") String deliveryId);
+
+
 }

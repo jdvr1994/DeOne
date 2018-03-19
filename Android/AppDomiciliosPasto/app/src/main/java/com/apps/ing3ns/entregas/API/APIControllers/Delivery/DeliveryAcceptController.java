@@ -3,6 +3,8 @@ package com.apps.ing3ns.entregas.API.APIControllers.Delivery;
 import com.apps.ing3ns.entregas.API.API;
 import com.apps.ing3ns.entregas.API.APIServices.DeliveryService;
 import com.apps.ing3ns.entregas.Modelos.Delivery;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -21,6 +23,7 @@ public class DeliveryAcceptController {
     DeliveryAcceptListener listener;
 
     public static final String  GET= "getdelivery";
+    public static final String  UPDATE= "update_delivery";
     public static final String  START= "start_delivery";
     public static final String  FINISH= "finish_delivery";
 
@@ -107,6 +110,32 @@ public class DeliveryAcceptController {
             @Override
             public void onFailure(Call<ResponseBody> call, Throwable t) {
                 listener.getErrorConnection(FINISH,t);
+            }
+        });
+    }
+
+    //--------------------- HTTP PUT REQUEST RETROFIT -----------------
+    public void updateDelivery(String id, HashMap<String,String> map){
+        DeliveryService service = API.getApiPost().create(DeliveryService.class);
+
+        Call<Delivery> deliveryCall = service.updateDelivery(id,map);
+
+        deliveryCall.enqueue(new Callback<Delivery>() {
+            @Override
+            public void onResponse(Call<Delivery> call, Response<Delivery> response){
+                if(response.code()!=200) try {
+                    listener.getErrorMessage(UPDATE,response.code(),response.errorBody().string());
+                } catch (IOException e) {e.printStackTrace();}
+
+                Delivery delivery = response.body();
+                if(delivery != null) {
+                    listener.updateDeliverySuccessful(delivery);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Delivery> call, Throwable t) {
+                listener.getErrorConnection(UPDATE,t);
             }
         });
     }

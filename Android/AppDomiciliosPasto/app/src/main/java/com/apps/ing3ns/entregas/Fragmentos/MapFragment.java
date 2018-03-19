@@ -13,6 +13,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Location;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
@@ -66,6 +67,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import java.io.UnsupportedEncodingException;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -140,6 +142,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
     private SharedPreferences preferences;
     private FragmentsListener listener;
     private Gson gson;
+    private final int PHONE_CALL_CODE = 100;
 
     //######################################################################################
     //---------------------------- DEFINICION DE OBJETOS UI --------------------------------
@@ -177,8 +180,8 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
 
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
-        Log.i(TAG,"On ViewCreated Fragment Maps");
         super.onViewCreated(view, savedInstanceState);
+        Log.i(TAG,"On ViewCreated Fragment Maps");
         bindUI(view);
 
         FirebaseMessaging.getInstance().subscribeToTopic(Utils.TOPIC_STATE_2);
@@ -232,6 +235,26 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         btnProblems.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                FirebaseMessaging.getInstance().subscribeToTopic(Utils.TOPIC_STATE_1);
+                FirebaseMessaging.getInstance().unsubscribeFromTopic(Utils.TOPIC_STATE_0);
+                FirebaseMessaging.getInstance().unsubscribeFromTopic(Utils.TOPIC_STATE_2);
+
+                delivery = gson.fromJson(UtilsPreferences.getDelivery(preferences),Delivery.class);
+
+                textCargando.setText("Cancelando Pedido");
+                cargando.setVisibility(View.VISIBLE);
+                if(delivery.getState()==Utils.DELIVERY_RECOGIENDO){
+                    deliveryAcceptController.updateDelivery(delivery.get_id(),Utils.getHashMapState(0));
+                }
+
+                if(delivery.getState()==Utils.DELIVERY_ENTREGANDO){
+                    HashMap<String,String> map = new HashMap<>();
+                    map.put("state","0");
+                    map.put("addressStart","Domiciliario Pinchado");
+                    map.put("positionStart",gson.toJson(domiciliario.getPosition()));
+
+                    deliveryAcceptController.updateDelivery(delivery.get_id(),map);
+                }
 
             }
         });
@@ -239,7 +262,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         btnCall.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
+                callClient();
             }
         });
         Log.i(TAG,"On ViewCreated2 Fragment Maps");
@@ -387,8 +410,10 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
      * Callback recibida cuando una peticion de permisos ha sido completada.
      */
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        /**
+         * Resivimos Permisos de Ubicacion
+         */
         Log.i(TAG, "onRequestPermissionResult");
         if (requestCode == REQUEST_PERMISSIONS_REQUEST_CODE) {
             if (grantResults.length <= 0) {
@@ -432,6 +457,29 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
                         .show();
             }
         }
+
+        /**
+         * Resivimos Permisos para llamada
+         */
+        if(requestCode == PHONE_CALL_CODE){
+            String permission = permissions[0];
+            int result = grantResults[0];
+
+            if (permission.equals(Manifest.permission.CALL_PHONE)) {
+                // Comprobar si ha sido aceptado o denegado la petición de permiso
+                if (result == PackageManager.PERMISSION_GRANTED) {
+                    // Concedió su permiso
+                    String phoneNumber = delivery.getPhone();
+                    Intent intentCall = new Intent(Intent.ACTION_CALL, Uri.parse("tel:" + phoneNumber));
+                    if (ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) return;
+                    startActivity(intentCall);
+                }
+                else {
+                    // No concendió su permiso
+                    Toast.makeText(getActivity(), "Tu negaste permiso para llamadas", Toast.LENGTH_SHORT).show();
+                }
+            }
+        }
     }
 
 
@@ -443,7 +491,6 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         public void onReceive(Context context, Intent intent) {
             Location location = intent.getParcelableExtra(ForegroundLocationService.EXTRA_LOCATION);
             if (location != null) {
-                Toast.makeText(getActivity(), Utils.getLocationText(location), Toast.LENGTH_SHORT).show();
                 markerDomiciliario.setPosition(new LatLng(location.getLatitude(),location.getLongitude()));
             }
         }
@@ -454,6 +501,15 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         // Update the buttons state depending on whether location updates are being requested.
         if (s.equals(UtilsPreferences.KEY_STATE_LOCATION_UPDATES)) {
             Toast.makeText(getActivity(), ""+sharedPreferences.getBoolean(UtilsPreferences.KEY_STATE_LOCATION_UPDATES, false), Toast.LENGTH_SHORT).show();
+        }
+
+        if (s.equals(UtilsPreferences.KEY_DOMICILIARIO_FREE)) {
+            Toast.makeText(getActivity(), ""+sharedPreferences.getBoolean(UtilsPreferences.KEY_DOMICILIARIO_FREE, false), Toast.LENGTH_SHORT).show();
+            Toast.makeText(getActivity(), "Alguien acepto tu pedido", Toast.LENGTH_LONG).show();
+            cargando.setVisibility(View.INVISIBLE);
+            UtilsPreferences.removeDelivery(preferences);
+            UtilsPreferences.removeClient(preferences);
+            listener.setOnChangeToDomiciliario(Utils.KEY_MAP_FRAGMENT, R.id.btn_ok);
         }
     }
 
@@ -484,14 +540,16 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
                 .position(pasto)
                 .title(getResources().getString(R.string.user_position_title))
                 .snippet(getResources().getString(R.string.user_position_message))
-                .icon(BitmapDescriptorFactory.fromResource(R.mipmap.ic_marker_origen))
+                .icon(BitmapDescriptorFactory.fromResource(R.mipmap.ic_moto))
+                //.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE))
         );
 
         markerAddressStart = gMap.addMarker(new MarkerOptions()
                 .position(new LatLng(delivery.getPositionStart().getLat(),delivery.getPositionStart().getLng()))
                 .title(getResources().getString(R.string.client_position_title))
                 .snippet(getResources().getString(R.string.client_position_message))
-                .icon(BitmapDescriptorFactory.fromResource(R.mipmap.ic_marker_destino))
+                //.icon(BitmapDescriptorFactory.fromResource(R.mipmap.))
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE))
         );
 
         CameraPosition camera = new CameraPosition.Builder()
@@ -540,8 +598,12 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
 
     @Override
     public void onRutaLista(List<Route> routes) {
-        if(routes.size()>0)dibujarRuta(routes.get(0).points);
-        else Toast.makeText(getContext(), "Posicion del cliente DESCONOCIDA", Toast.LENGTH_LONG).show();
+        if(routes!=null) {
+            if (routes.size() > 0) dibujarRuta(routes.get(0).points);
+            else Toast.makeText(getContext(), "Posicion del cliente DESCONOCIDA", Toast.LENGTH_LONG).show();
+        }else{
+            Toast.makeText(getContext(), "Asegurate de tener conexion a internet", Toast.LENGTH_LONG).show();
+        }
 
         cargando.setVisibility(View.INVISIBLE);
     }
@@ -566,6 +628,59 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
     }
 
     //######################################################################################
+    //-------------------------------------- Llamadas --------------------------------------
+    //######################################################################################
+
+    private void callClient() {
+        String phoneNumber = delivery.getPhone();
+        if (phoneNumber != null && !phoneNumber.isEmpty()) {
+            // comprobar version actual de android que estamos corriendo
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // Comprobar si ha aceptado, no ha aceptado, o nunca se le ha preguntado
+                if (CheckPermission(Manifest.permission.CALL_PHONE)) {
+                    // Ha aceptado
+                    Intent i = new Intent(Intent.ACTION_CALL, Uri.parse("tel:" + phoneNumber));
+                    if (ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) return;
+                    startActivity(i);
+                } else {
+                    // Ha denegado o es la primera vez que se le pregunta
+                    if (!shouldShowRequestPermissionRationale(Manifest.permission.CALL_PHONE)) {
+                        // No se le ha preguntado aún
+                        requestPermissions(new String[]{Manifest.permission.CALL_PHONE}, PHONE_CALL_CODE);
+                    } else {
+                        // Ha denegado
+                        Toast.makeText(getActivity(), "Please, enable the request permission", Toast.LENGTH_SHORT).show();
+                        Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                        i.addCategory(Intent.CATEGORY_DEFAULT);
+                        i.setData(Uri.parse("package:" + getActivity().getPackageName()));
+                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        i.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
+                        i.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
+                        startActivity(i);
+                    }
+                }
+            } else {
+                OlderVersions(phoneNumber);
+            }
+        } else {
+            Toast.makeText(getActivity(), "Numero de telefono invalido", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void OlderVersions(String phoneNumber) {
+        Intent intentCall = new Intent(Intent.ACTION_CALL, Uri.parse("tel:" + phoneNumber));
+        if (CheckPermission(Manifest.permission.CALL_PHONE)) {
+            startActivity(intentCall);
+        } else {
+            Toast.makeText(getActivity(), "Tu no otorgaste permiso para llamadas", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private boolean CheckPermission(String permission) {
+        int result = getActivity().checkCallingOrSelfPermission(permission);
+        return result == PackageManager.PERMISSION_GRANTED;
+    }
+    //######################################################################################
     //--------------------------------- Funciones Api Rest ---------------------------------
     //######################################################################################
 
@@ -582,8 +697,26 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
     }
 
     @Override
+    public void updateDeliverySuccessful(Delivery deliveryUpdated) {
+        if(delivery.getState()==Utils.DELIVERY_RECOGIENDO){
+            Toast.makeText(getContext(), "Has cancelado el pedido, debido a una emergencia", Toast.LENGTH_LONG).show();
+            cargando.setVisibility(View.INVISIBLE);
+            UtilsPreferences.removeDelivery(preferences);
+            UtilsPreferences.removeClient(preferences);
+            listener.setOnChangeToDomiciliario(Utils.KEY_MAP_FRAGMENT, R.id.btn_ok);
+        }
+
+        if(delivery.getState()==Utils.DELIVERY_ENTREGANDO){
+            textCargando.setText("Esperando a que otro domiciliario acepte tu pedido");
+            Toast.makeText(getContext(), "Esperando a que otro domiciliario acepte tu pedido", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
     public void startDeliverySuccessful(String message) {
         Toast.makeText(getActivity(), "Tu cliente te esta esperando...", Toast.LENGTH_LONG).show();
+        delivery.setState(1);
+        UtilsPreferences.saveDelivery(preferences,gson.toJson(delivery));
     }
 
     @Override
@@ -613,12 +746,19 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
             if(code==500) Toast.makeText(getActivity(), "No se pudo completar la acción" , Toast.LENGTH_LONG).show();
             else Toast.makeText(getActivity(), errorMessage, Toast.LENGTH_SHORT).show();
         }
+
+        if(nameEvent.contentEquals(DeliveryAcceptController.UPDATE)){
+            if(code==500) Toast.makeText(getActivity(), "No se pudo completar la acción" , Toast.LENGTH_LONG).show();
+            else Toast.makeText(getActivity(), errorMessage, Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
     public void getErrorConnection(String nameEvent, Throwable t) {
             if(!nameEvent.contentEquals(DeliveryAcceptController.FINISH)){
                 returnToDomiciliarioFragment();
+            }else{
+                cargando.setVisibility(View.INVISIBLE);
             }
             Toast.makeText(getActivity(), "Ha ocurrido un error de conexión" , Toast.LENGTH_LONG).show();
     }

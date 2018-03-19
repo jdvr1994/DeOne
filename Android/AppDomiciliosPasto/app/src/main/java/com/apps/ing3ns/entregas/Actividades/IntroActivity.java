@@ -41,7 +41,7 @@ public class IntroActivity extends MaterialIntroActivity {
                         .backgroundColor(R.color.second_slide_background)
                         .buttonsColor(R.color.second_slide_buttons)
                         .neededPermissions(new String[]{Manifest.permission.INTERNET, Manifest.permission.ACCESS_NETWORK_STATE, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION})
-                        .image(R.drawable.slide2)
+                        .image(R.mipmap.slide2)
                         .title("Permisos")
                         .description("Para prestar un servicio de domicilios eficiente, requerimos de tu permiso de Ubicación, de esta forma el cliente podra ver como entragas su paquete en tiempo real")
                         .build(),
@@ -57,7 +57,7 @@ public class IntroActivity extends MaterialIntroActivity {
         addSlide(new SlideFragmentBuilder()
                 .backgroundColor(R.color.second_slide_background)
                 .buttonsColor(R.color.second_slide_buttons)
-                .image(R.drawable.slide1)
+                .image(R.mipmap.slide1)
                 .title("Estas listo para usar De One")
                 .description("El  servicio de domicilios mas eficiente")
                 .build(),

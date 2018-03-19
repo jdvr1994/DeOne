@@ -10,6 +10,7 @@ import java.util.List;
 
 public interface DeliveryAcceptListener {
     void getDelivery(Delivery delivery);
+    void updateDeliverySuccessful(Delivery deliveryUpdated);
     void startDeliverySuccessful(String message);
     void finishDeliverySuccessful(String message);
     void getErrorMessage(String nameEvent,int code, String errorMessage);

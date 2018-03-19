@@ -33,6 +33,7 @@ public class Utils {
     public static final String KEY_LOGIN_FRAGMENT = "loginFragment";
     public static final String KEY_DOMICILIARIO_FRAGMENT = "domiciliarioFragment";
     public static final String KEY_MAP_FRAGMENT = "mapFragment";
+    public static final String KEY_PROFILE_FRAGMENT = "profileFragment";
 
     public static final String TOPIC_STATE_0 = "STATE_0";
     public static final String TOPIC_STATE_1 = "STATE_1";
@@ -125,7 +126,7 @@ public class Utils {
         if(imageURL!=null){if(imageURL.length()==0) imageURL = "http://imagen";}
         else imageURL = "http://imagen";
         final String finalImageURL = imageURL;
-        Picasso.with(context).load(imageURL).networkPolicy(NetworkPolicy.OFFLINE).fit().placeholder(R.drawable.slide1).into(imageView, new com.squareup.picasso.Callback() {
+        Picasso.with(context).load(imageURL).networkPolicy(NetworkPolicy.OFFLINE).fit().placeholder(R.mipmap.slide1).into(imageView, new com.squareup.picasso.Callback() {
             @Override
             public void onSuccess() {
             }
@@ -135,7 +136,7 @@ public class Utils {
                 Picasso.with(context)
                         .load(finalImageURL)
                         .fit()
-                        .placeholder(R.drawable.slide1)
+                        .placeholder(R.mipmap.slide1)
                         .into(imageView, new com.squareup.picasso.Callback() {
                             @Override
                             public void onSuccess() {
@@ -156,7 +157,7 @@ public class Utils {
         if(imageURL!=null){if(imageURL.length()==0) imageURL = "http://imagen";}
         else imageURL = "http://imagen";
         final String finalImageURL = imageURL;
-        Picasso.with(context).load(imageURL).networkPolicy(NetworkPolicy.OFFLINE).fit().transform(new RoundedTransformation()).placeholder(R.drawable.slide1).into(imageView, new com.squareup.picasso.Callback() {
+        Picasso.with(context).load(imageURL).networkPolicy(NetworkPolicy.OFFLINE).fit().transform(new RoundedTransformation()).placeholder(R.mipmap.slide1).into(imageView, new com.squareup.picasso.Callback() {
             @Override
             public void onSuccess() {
             }
@@ -167,7 +168,7 @@ public class Utils {
                         .load(finalImageURL)
                         .fit()
                         .transform(new RoundedTransformation())
-                        .placeholder(R.drawable.slide1)
+                        .placeholder(R.mipmap.slide1)
                         .into(imageView, new com.squareup.picasso.Callback() {
                             @Override
                             public void onSuccess() {

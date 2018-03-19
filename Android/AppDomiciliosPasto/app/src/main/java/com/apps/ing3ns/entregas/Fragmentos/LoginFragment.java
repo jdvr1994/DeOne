@@ -117,7 +117,8 @@ public class LoginFragment extends Fragment implements DomiciliarioListener {
     //######################################################################################
 
     private boolean isValidEmail(String email){
-        return !TextUtils.isEmpty(email) && Patterns.EMAIL_ADDRESS.matcher(email).matches();
+        //return !TextUtils.isEmpty(email) && Patterns.EMAIL_ADDRESS.matcher(email).matches();
+        return true;
     }
 
     @Override

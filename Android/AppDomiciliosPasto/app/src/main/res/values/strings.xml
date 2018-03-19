@@ -7,6 +7,9 @@
     <string name="ingresa_tu_usuario">Ingresa tu usuario</string>
     <string name="no_esperes_mas">No esperes Más!</string>
 
+    <string name="ingresa_tu_nuevo_pass">Ingresa tu nueva contraseña</string>
+    <string name="ingresa_tu_nuevo_pass2">Ingresa la contraseña nuevamente</string>
+
 
     <string name="user_position_title">Tu posición</string>
     <string name="user_position_message">Aquí estas tú</string>
