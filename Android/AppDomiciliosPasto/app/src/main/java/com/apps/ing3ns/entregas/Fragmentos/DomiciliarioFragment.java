@@ -180,7 +180,7 @@ public class DomiciliarioFragment extends Fragment implements  ClientListener, D
             public void onItemClick(Delivery delivery, int position) {
                 cargando.setVisibility(View.VISIBLE);
                 UtilsPreferences.saveDelivery(preferences,gson.toJson(delivery));
-                clientController.getClient(UtilsPreferences.getToken(preferences),delivery.getClient());
+                clientController.getClient(UtilsPreferences.getToken(preferences),delivery.getClient().get_id());
             }
         });
 

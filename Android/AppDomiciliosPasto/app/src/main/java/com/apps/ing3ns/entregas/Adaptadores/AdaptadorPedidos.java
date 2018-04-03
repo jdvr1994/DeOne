@@ -108,7 +108,7 @@ public class AdaptadorPedidos extends RecyclerView.Adapter<AdaptadorPedidos.View
 
         void  bind(final Delivery delivery, final OnItemClickListener listener){
 
-            idText.setText(String.valueOf(deliveries.indexOf(delivery)+1));
+            idText.setText(delivery.getClient().getName());
             addressStart.setText(delivery.getAddressStart());
             addressEnd.setText(delivery.getAddressEnd());
             phone.setText(delivery.getPhone());

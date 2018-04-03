@@ -351,7 +351,7 @@ public class MapFragment extends Fragment implements MostrarRutaListener,OnMapRe
         addressStart.setText(delivery.getAddressStart());
         addressEnd.setText(delivery.getAddressEnd());
         nameClient.setText(client.getName());
-        phoneDelivery.setText(client.getPhone());
+        phoneDelivery.setText(delivery.getPhone());
         Utils.imagePicasso(getContext(),client.getAvatar(),imageClient);
     }
 

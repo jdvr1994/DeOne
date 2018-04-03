@@ -8,6 +8,8 @@ import android.content.Intent;
 import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.support.v4.content.LocalBroadcastManager;
+import android.util.Log;
+
 import com.apps.ing3ns.entregas.Actividades.MainActivity;
 import com.apps.ing3ns.entregas.R;
 import com.google.firebase.messaging.FirebaseMessagingService;
@@ -57,7 +59,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
             switch (type){
                 case KEY_TYPE_ADD_DELIVERY:
-
+                    Log.i(TAG,"Llego notificacion add delivery");
                     delivery = data.get(KEY_DELIVERY);
                     intent.putExtra(KEY_TYPE, type);
                     intent.putExtra(KEY_DELIVERY, delivery);
@@ -66,7 +68,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                     break;
 
                 case KEY_TYPE_DELETE_DELIVERY:
-
+                    Log.i(TAG,"Llego notificacion remove delivery");
                     delivery = data.get(KEY_DELIVERY);
                     intent.putExtra(KEY_TYPE, type);
                     intent.putExtra(KEY_DELIVERY, delivery);
@@ -75,72 +77,8 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                     break;
 
                 case KEY_TYPE_NOTIFICATION:
-                    NotificationBackground notification = new NotificationBackground(data.get(KEY_TITLE),data.get(KEY_BODY),data);
-                    sendNotificationFull(notification);
                     break;
             }
         }
-
     }
-
-
-    private void sendNotificationFull(NotificationBackground notification) {
-
-        String title = notification.getTitle();
-        String body = notification.getBody();
-        String tipo = notification.getData().get(KEY_TYPE);
-
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this,0, intent, PendingIntent.FLAG_ONE_SHOT);
-
-        Notification.Builder notificationBuilder;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            notificationBuilder = new Notification.Builder(this, "notification_ch_1");
-        } else {
-            notificationBuilder = new Notification.Builder(this);
-        }
-
-        notificationBuilder
-                 .setContentIntent(pendingIntent)
-                 .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.mipmap.ic_moto))
-                 .setSmallIcon(R.drawable.myicon)
-                 .setContentTitle(title)
-                 .setStyle(new Notification.BigTextStyle().bigText(notification.getBody()))
-                 .setContentText(body)
-                 .setVibrate(new long[] {100, 250, 100, 500})
-                 .setAutoCancel(true);
-
-        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (notificationManager != null) {
-            notificationManager.notify(0, notificationBuilder.build());
-        }
-    }
-
-    private class NotificationBackground {
-        //Notification
-        String title;
-        String body;
-        //Data
-        Map<String, String> data;
-
-        public NotificationBackground(String title, String body, Map<String, String> data) {
-            this.title = title;
-            this.body = body;
-            this.data = data;
-        }
-
-        public String getTitle() {
-            return title;
-        }
-
-        public String getBody() {
-            return body;
-        }
-
-        public Map<String, String> getData() {
-            return data;
-        }
-    }
-
 }

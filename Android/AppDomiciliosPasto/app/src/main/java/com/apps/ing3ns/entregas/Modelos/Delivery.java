@@ -1,6 +1,7 @@
 package com.apps.ing3ns.entregas.Modelos;
 
 import android.location.Location;
+import android.util.Log;
 
 import com.apps.ing3ns.entregas.Utils;
 
@@ -15,7 +16,7 @@ import java.util.List;
 
 public class Delivery {
     private String _id;
-    private String client;
+    private Client client;
     private String domiciliario;
     private String addressStart;
     private String addressEnd;
@@ -29,7 +30,7 @@ public class Delivery {
     public Delivery() {
     }
 
-    public Delivery(String _id, String client, String domiciliario, String addressStart, String addressEnd, Position positionStart, Position positionEnd, Date date, String category, String phone, int state) {
+    public Delivery(String _id, Client client, String domiciliario, String addressStart, String addressEnd, Position positionStart, Position positionEnd, Date date, String category, String phone, int state) {
         this._id = _id;
         this.client = client;
         this.domiciliario = domiciliario;
@@ -51,11 +52,11 @@ public class Delivery {
         this._id = _id;
     }
 
-    public String getClient() {
+    public Client getClient() {
         return client;
     }
 
-    public void setClient(String client) {
+    public void setClient(Client client) {
         this.client = client;
     }
 
@@ -168,7 +169,6 @@ public class Delivery {
 
     public static boolean compareListDeliveries(List<Delivery> deliveries1, String lastDeliveryId, int numLastDeliveries){
         boolean equal = true;
-
         if(deliveries1.size()!=numLastDeliveries) equal = false;
         else if(!deliveries1.get(deliveries1.size()-1).get_id().equals(lastDeliveryId)) equal = false;
 

@@ -37,7 +37,7 @@
                 android:layout_alignParentLeft="true"
                 android:layout_marginEnd="5dp"
                 android:layout_marginRight="5dp"
-                android:text="Pedido N°"
+                android:text=""
                 android:textColor="@color/primary_text"
                 android:textSize="16dp"
                 android:textStyle="bold" />

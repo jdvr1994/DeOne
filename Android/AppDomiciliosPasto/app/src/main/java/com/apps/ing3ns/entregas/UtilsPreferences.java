@@ -132,7 +132,7 @@ public class UtilsPreferences {
      * @param context el {@link Context} para recuperar las SharedPreferences.
      */
     public static String getLastDeliveryId(Context context) {
-        return PreferenceManager.getDefaultSharedPreferences(context).getString(KEY_DELIVERY_ID, null);
+        return PreferenceManager.getDefaultSharedPreferences(context).getString(KEY_DELIVERY_ID, "with pouras");
     }
 
     /**

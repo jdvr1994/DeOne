@@ -15,6 +15,7 @@ import android.content.res.Configuration;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.location.Location;
+import android.net.Uri;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
@@ -89,7 +90,6 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
     public static final String ACTION_BROADCAST = PACKAGE_NAME + ".broadcast";
     public static final String EXTRA_LOCATION = PACKAGE_NAME + ".location";
     public static final String EXTRA_NEARBY_DELIVERIES = PACKAGE_NAME + ".nearby_deliveries";
-    public static final String EXTRA_DELIVERY_ACCEPTED = PACKAGE_NAME + ".delivery_accepted";
     public static final String EXTRA_STARTED_FROM_NOTIFICATION = PACKAGE_NAME + ".started_from_notification";
     private static final String NEW_DELIVERY_CHANNEL = "new_delivery_chanel";
 
@@ -105,7 +105,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
     /**
      * Configuracion distancias Umbrales.
      */
-    private static final double DISTANCE_DEFAULT = 1.9;
+    private static final double DISTANCE_DEFAULT = 9.5;
     private static final double FULL_DISTANCE = 5.0;
     private static final double TARGET_DISTANCE = 0.07;
 
@@ -192,22 +192,6 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
                     Delivery.removeDelivery(deliveriesActivos, newDelivery.get_id());
                     break;
             }
-
-            nearbyDeliveries = Delivery.getNearbyDeliveries(deliveriesActivos, mLocation, DISTANCE_DEFAULT);
-            if(nearbyDeliveries.size()>0) {
-                Log.i(TAG, "UN PEDIDO ACTUALIZADO");
-                // Compruebo que halla ocurrido un cambio en la lista de Nerby Deliveries
-                if(!Delivery.compareListDeliveries(nearbyDeliveries,lastDeliveryID,numLastDeliveries)) {
-                    if(nearbyDeliveries.size()>numLastDeliveries) showNotificationNewDelivery();
-
-                    // Asigno valores para numLastDeliveries y para lastDeliveryID
-                    numLastDeliveries = nearbyDeliveries.size();
-                    lastDeliveryID = nearbyDeliveries.get(numLastDeliveries-1).get_id();
-
-                    if(!serviceIsRunningInForeground(getApplicationContext()))getNearbyDeliveries();
-                }
-            }
-
         }
     };
 
@@ -591,20 +575,21 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
         //######################################################################################
         if(deliveryProcess == Constants.ACTION.SEARCH_DELIVERY) {
             Log.i(TAG, "SEARCH_DELIVERIES");
-
+            domiciliario.setPosition(new Position(location.getLatitude(),location.getLongitude()));
             // Compartimos la ubicacion cada cierto tiempo
             if(positionUpdated) {
                 runnableCode = new Runnable() {
                     @Override
                     public void run() {
-                        Log.i(TAG,"Actualizando Posicion domiciliario");
-                        HashMap<String, String> map = new HashMap<>();
-                        map.put("position", gson.toJson(domiciliario.getPosition()));
-                        domiciliarioController.updateDomiciliario(domiciliario.get_id(), map);
                         positionUpdated = true;
                     }
                 };
                 handler.postDelayed(runnableCode, TIME_UPDATE_POSITION);
+
+                Log.i(TAG,"Actualizando Posicion domiciliario");
+                HashMap<String, String> map = new HashMap<>();
+                map.put("position", gson.toJson(domiciliario.getPosition()));
+                domiciliarioController.updateDomiciliario(domiciliario.get_id(), map);
                 positionUpdated = false;
             }
 
@@ -614,8 +599,13 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
             if(nearbyDeliveries.size()>0) {
                 Log.i(TAG, "HAY PEDIDOS CERCANOS");
                 // Compruebo que halla ocurrido un cambio en la lista de Nerby Deliveries
+                Log.i("COMPARE_LIST_DELIVERIES", gson.toJson(nearbyDeliveries));
+                Log.i("COMPARE_LIST_DELIVERIES", lastDeliveryID);
+                Log.i("COMPARE_LIST_DELIVERIES", "num deliveries"+numLastDeliveries);
                 if(!Delivery.compareListDeliveries(nearbyDeliveries,lastDeliveryID,numLastDeliveries)) {
+                    Log.i(TAG, "LA LISTA DE PEDIDOS CERCANOS A CAMBIADO");
                     if(nearbyDeliveries.size()>numLastDeliveries) {
+                        Log.i(TAG, "HAY UN NUEVO PEDIDO CERCANO");
                         showNotificationNewDelivery();
                     }
 
@@ -626,6 +616,12 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
                     // Le enviamos los Pedidos Cercanos a los clientes vinculados (Fragments).
                     if(!serviceIsRunningInForeground(this))getNearbyDeliveries();
                 }
+            }else{
+                if(numLastDeliveries!=0) {
+                    if (!serviceIsRunningInForeground(this)) getNearbyDeliveries();
+                }
+                numLastDeliveries = 0;
+                lastDeliveryID = " ";
             }
         }
 
@@ -640,6 +636,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
         // Configuramos el texto y el titulo de la notificacion FOREGROUND
         CharSequence tittle = "Tienes un nuevo pedido disponible";
         CharSequence text = nearbyDeliveries.get(nearbyDeliveries.size()-1).getAddressStart();
+        Uri defaultSoundUri = Uri.parse("android.resource://" + getPackageName() + "/raw/thrown");
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this)
                 .addAction(R.drawable.ic_launch, getString(R.string.launch_ver_pedido), activityPendingIntent)
@@ -649,6 +646,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
                 .setOngoing(false)
                 .setPriority(Notification.PRIORITY_HIGH)
                 .setVibrate(new long[] {100, 250, 100, 500})
+                .setSound(defaultSoundUri)
                 .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.mipmap.ic_moto))
                 .setSmallIcon(R.drawable.myicon)
                 .setTicker(text)
