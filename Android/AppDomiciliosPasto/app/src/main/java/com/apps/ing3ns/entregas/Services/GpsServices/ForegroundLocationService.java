@@ -636,7 +636,7 @@ public class ForegroundLocationService extends Service implements DomiciliarioLi
         // Configuramos el texto y el titulo de la notificacion FOREGROUND
         CharSequence tittle = "Tienes un nuevo pedido disponible";
         CharSequence text = nearbyDeliveries.get(nearbyDeliveries.size()-1).getAddressStart();
-        Uri defaultSoundUri = Uri.parse("android.resource://" + getPackageName() + "/raw/thrown");
+        Uri defaultSoundUri = Uri.parse("android.resource://" + getPackageName() + "/raw/deonesound");
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this)
                 .addAction(R.drawable.ic_launch, getString(R.string.launch_ver_pedido), activityPendingIntent)
